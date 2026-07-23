@@ -137,12 +137,20 @@ date convention as Sangala Studio; bump it on any shipped change.
   whether to repurpose or drop). No dither/contrast controls yet.
 - Test material in `images/`: `Crested Crane.png`, `African Buffalo (LEGO).jpg`, the crane/buffalo
   reference mosaics, `Samweli Wanda.png`.
-- **Paint / Pick are live** (left rail). After Build, the **Paint** tool hand-edits the mosaic:
+- **Paint / Pick / Erase are live** (left rail). After Build, the **Paint** tool hand-edits the mosaic:
   click or drag cells to set them to the current paint color; **right-click erases** a cell to empty.
-  In paint mode a swatch click *selects* the paint color (and owns it) instead of toggling ownership;
-  the current color shows a blue ring (`.sw.cur`). **Pick** samples a cell's color then switches to
-  Paint. Cell writes are incremental into `built.counts` (BOM updates on mouseup). `activeTool` =
-  select|paint|pick. Rebuilding or editing the composite discards hand edits (expected).
+  **Erase** (🧽) is the discoverable version of that — left-click or drag clears cells back to empty
+  (the baseplate shows through). In paint/erase mode a swatch click *selects* the paint color (and
+  owns it, switching to Paint) instead of toggling ownership; the current color shows a blue ring
+  (`.sw.cur`). **Pick** samples a cell's color then switches to Paint. Cell writes are incremental into
+  `built.counts` (BOM updates on mouseup). `activeTool` = select|paint|pick|erase.
+- **Undo / redo** for hand edits: **Ctrl+Z** undoes, **Ctrl+Y** or **Ctrl+Shift+Z** redoes. One stroke
+  (a mousedown→mouseup drag, however many cells) is one step — the accidental-line case reverts in a
+  single press. Implementation: `curStroke` is a Map of `{before,after}` per touched cell, committed to
+  `undoStack` on mouseup (`commitStroke`); `undo`/`redo` replay net per-cell values via `setCell` while
+  `curStroke` is null (so they don't re-record). A fresh Build or any composite edit clears the history
+  (`clearHistory` in `build()`/`invalidate()`), since those discard hand edits anyway.
+  Rebuilding or editing the composite discards hand edits (expected).
 - The auto-conversion gets ~80% toward the hand-built "gold standard"; Paint is the last-mile finish.
 - **Next candidates:** owned-tile *quantities* (cap a colour, overflow to next-nearest); Print chart
   (numbered chart + parts list); porting Studio's ML background removal (u2netp) for busy

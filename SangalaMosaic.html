@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.21 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.22 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -117,8 +117,9 @@
     <div class="ltitle marker">Tools</div>
     <button class="ltbtn" id="tPhoto" disabled title="Coming soon — move and zoom the photo under the grid">🖼️<small>Photo</small></button>
     <button class="ltbtn" id="tFrame" disabled title="Coming soon — move and resize the framing grid">⊞<small>Frame</small></button>
-    <button class="ltbtn" id="tPaint" title="Paint: after Build, click or drag cells to set their color by hand (right-click erases)">🖌️<small>Paint</small></button>
+    <button class="ltbtn" id="tPaint" title="Paint: after Build, click or drag cells to set their color by hand (Ctrl+Z undoes)">🖌️<small>Paint</small></button>
     <button class="ltbtn" id="tPick"  title="Pick: click a cell to grab its color to paint with">💧<small>Pick</small></button>
+    <button class="ltbtn" id="tErase" title="Erase: after Build, click or drag cells to clear them back to empty (Ctrl+Z undoes)">🧽<small>Erase</small></button>
   </div>
 
   <!-- (3) WORKSPACE / MAT -->
@@ -211,7 +212,8 @@
   let showGrid = true;
   let showPlate = true;   // whether the studded baseplate shows behind the built tiles
   let built = null, viewMode = "photo";   // the computed mosaic + which view is showing
-  let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick
+  let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick/Erase
+  let undoStack = [], redoStack = [], curStroke = null;   // paint-edit history: each entry is one stroke's per-cell {before,after}
 
   const gW = () => Math.max(1, Math.round(+$("gW").value)||32);
   const gH = () => Math.max(1, Math.round(+$("gH").value)||32);
@@ -306,12 +308,12 @@
     return null;
   }
   cv.addEventListener("mousedown", e=>{
-    if(activeTool==="paint"||activeTool==="pick"){
+    if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){
       if(!built) return;
       if(viewMode!=="mosaic"){ viewMode="mosaic"; render(); }
       const cel=cellAt(pt(e)); if(!cel) return;
       if(activeTool==="pick"){ const v=built.idx[cel.r][cel.c]; if(v>=0){ paintColor=v; setTool("paint"); } return; }
-      painting=true; eraseMode=(e.button===2); lastCell=cel;
+      painting=true; eraseMode=(activeTool==="erase"||e.button===2); lastCell=cel; curStroke=new Map();   // record this stroke for undo
       if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render();
       e.preventDefault(); return;
     }
@@ -328,7 +330,7 @@
   });
   window.addEventListener("mousemove", e=>{
     if(painting){ const cel=cellAt(pt(e)); if(cel&&(!lastCell||cel.r!==lastCell.r||cel.c!==lastCell.c)){ lastCell=cel; if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render(); } return; }
-    if(activeTool==="paint"||activeTool==="pick"){ cv.style.cursor = built?"cell":"default"; return; }
+    if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){ cv.style.cursor = built?"cell":"default"; return; }
     if(!drag){ const p=pt(e), t=pick(p); cv.style.cursor = !t?"default":(t.act==="resize"?CURS[t.corner]:"move"); return; }
     if(built) invalidate();                                          // editing the composite makes any built mosaic stale
     const p=pt(e), b=sel.kind==="frame"?frame:sel.obj;
@@ -341,7 +343,7 @@
     }
     render();
   });
-  window.addEventListener("mouseup", ()=>{ if(painting){ painting=false; renderBOM(); return; } drag=null; });
+  window.addEventListener("mouseup", ()=>{ if(painting){ painting=false; commitStroke(); renderBOM(); return; } drag=null; });
 
   // ---- add images (Open / drop). Each Open ADDS a layer, so a composite can be built up ----
   function visibleCenter(){                                        // center of the currently VISIBLE part of the canvas
@@ -444,7 +446,10 @@
   // ---- keyboard: Delete removes the selected image ----
   document.addEventListener("keydown", e=>{
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-    if(!typing && (e.key==="Delete"||e.key==="Backspace") && sel && sel.kind==="layer"){
+    if(typing) return;
+    if((e.ctrlKey||e.metaKey) && (e.key==="z"||e.key==="Z")){ e.shiftKey?redo():undo(); e.preventDefault(); return; }   // undo / redo paint edits
+    if((e.ctrlKey||e.metaKey) && (e.key==="y"||e.key==="Y")){ redo(); e.preventDefault(); return; }
+    if((e.key==="Delete"||e.key==="Backspace") && sel && sel.kind==="layer"){
       layers=layers.filter(L=>L!==sel.obj); sel=null; render(); e.preventDefault();
     }
   });
@@ -497,7 +502,7 @@
     PALETTE.forEach((p,i)=>{
       const s=document.createElement("div"); s.style.background="rgb("+p.rgb.join(",")+")";
       s.onclick=()=>{
-        if(activeTool==="paint"||activeTool==="pick"){ paintColor=i; p.own=true; if(activeTool==="pick") setTool("paint"); refreshSwatches(); }
+        if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){ paintColor=i; p.own=true; if(activeTool!=="paint") setTool("paint"); refreshSwatches(); }
         else { p.own=!p.own; invalidate(); refreshSwatches(); render(); }   // set-up mode: toggle ownership
       };
       box.appendChild(s);
@@ -505,7 +510,7 @@
     refreshSwatches();
   }
   function refreshSwatches(){
-    const paintMode=(activeTool==="paint"||activeTool==="pick");
+    const paintMode=(activeTool==="paint"||activeTool==="pick"||activeTool==="erase");
     [...$("swatches").children].forEach((s,i)=>{ const p=PALETTE[i];
       s.className="sw"+(p.own?"":" off")+(paintMode&&i===paintColor?" cur":"");
       s.title = paintMode ? (p.name+(i===paintColor?" — painting with this":" — click to paint with this"))
@@ -515,11 +520,12 @@
   // ---- Paint / Pick: hand-edit the built mosaic, tile by tile ----
   function setTool(t){
     activeTool=t;
-    $("tPaint").classList.toggle("on", t==="paint"); $("tPick").classList.toggle("on", t==="pick");
-    if(t==="paint"||t==="pick"){ if(built) viewMode="mosaic"; cv.style.cursor="cell"; } else cv.style.cursor="default";
+    $("tPaint").classList.toggle("on", t==="paint"); $("tPick").classList.toggle("on", t==="pick"); $("tErase").classList.toggle("on", t==="erase");
+    if(t==="paint"||t==="pick"||t==="erase"){ if(built) viewMode="mosaic"; cv.style.cursor="cell"; } else cv.style.cursor="default";
     refreshSwatches(); render();
-    if(t==="paint") $("status").textContent = built ? "Paint: pick a color below, then click or drag cells. Right-click erases a cell." : "Build a mosaic first — then Paint fixes it tile by tile.";
+    if(t==="paint") $("status").textContent = built ? "Paint: pick a color below, then click or drag cells. Ctrl+Z undoes." : "Build a mosaic first — then Paint fixes it tile by tile.";
     else if(t==="pick") $("status").textContent = built ? "Pick: click a cell to grab its color, then paint with it." : "Build a mosaic first.";
+    else if(t==="erase") $("status").textContent = built ? "Erase: click or drag cells to clear them to empty (the baseplate shows through). Ctrl+Z undoes." : "Build a mosaic first.";
   }
   function cellAt(p){
     if(!built) return null; const f=frame, gw=built.gw, gh=built.gh;
@@ -529,10 +535,29 @@
   }
   function setCell(r,c,t){                                     // incremental so a drag stays snappy
     const old=built.idx[r][c]; if(old===t) return false;
+    if(curStroke){ const k=r*built.gw+c, e=curStroke.get(k);   // remember this cell's pre-stroke value (net change per cell)
+      if(e) e.after=t; else curStroke.set(k,{r,c,before:old,after:t}); }
     built.idx[r][c]=t;
     if(old>=0 && --built.counts[old]<=0) delete built.counts[old];
     if(t>=0) built.counts[t]=(built.counts[t]||0)+1;
     return true;
+  }
+  // ---- undo / redo for paint & erase (one stroke = one step) ----
+  function commitStroke(){ if(curStroke&&curStroke.size){ undoStack.push([...curStroke.values()]); redoStack.length=0; } curStroke=null; }
+  function clearHistory(){ undoStack.length=0; redoStack.length=0; curStroke=null; }
+  function apply(edits, useBefore){ for(const ed of edits) setCell(ed.r, ed.c, useBefore?ed.before:ed.after); }   // curStroke is null here, so no re-record
+  function showResult(){ viewMode="mosaic"; $("bView").classList.add("on"); }   // make the mosaic visible so the change shows
+  function undo(){
+    if(!built||!undoStack.length){ $("status").textContent="Nothing to undo."; return; }
+    const edits=undoStack.pop(); apply(edits,true); redoStack.push(edits); showResult();
+    renderBOM(); render();
+    $("status").textContent="Undid a paint edit ("+edits.length+" tile"+(edits.length>1?"s":"")+"). Ctrl+Y redoes.";
+  }
+  function redo(){
+    if(!built||!redoStack.length){ $("status").textContent="Nothing to redo."; return; }
+    const edits=redoStack.pop(); apply(edits,false); undoStack.push(edits); showResult();
+    renderBOM(); render();
+    $("status").textContent="Redid a paint edit.";
   }
 
   // redmean colour distance - cheap but decently perceptual
@@ -622,7 +647,7 @@
     // 4. clean up (two gentle passes): kill speckle, fill pinholes, drop lone strays
     if(doClean){ idx=cleanup(idx,gw,gh); idx=cleanup(idx,gw,gh); }
     const counts={}; for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const v=idx[r][c]; if(v>=0) counts[v]=(counts[v]||0)+1; }
-    built={gw,gh,idx,counts}; viewMode="mosaic";
+    built={gw,gh,idx,counts}; viewMode="mosaic"; clearHistory();   // a fresh build starts a clean undo history
     renderBOM(); render();
     const tiled=Object.values(counts).reduce((a,b)=>a+b,0);
     $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+Object.keys(counts).length+" colors. Press View to compare with the photo.";
@@ -682,14 +707,15 @@
     $("bom").innerHTML=h;
   }
 
-  function invalidate(){ if(built){ built=null; renderBOM(); } viewMode="photo"; $("bView").classList.remove("on"); }
+  function invalidate(){ if(built){ built=null; renderBOM(); clearHistory(); } viewMode="photo"; $("bView").classList.remove("on"); }
   function updateButtons(){ $("bBuild").disabled=(layers.length===0); $("bView").disabled=!built; }
 
   $("bBuild").onclick = build;
   $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; $("bView").classList.toggle("on",viewMode==="mosaic"); render(); };
   $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
   $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
-  cv.addEventListener("contextmenu", e=>{ if(activeTool==="paint") e.preventDefault(); });   // right-click = erase, no menu
+  $("tErase").onclick=()=>setTool(activeTool==="erase"?"select":"erase");
+  cv.addEventListener("contextmenu", e=>{ if(activeTool==="paint"||activeTool==="erase") e.preventDefault(); });   // right-click = erase, no menu
   $("colorsVal").textContent=$("optColors").value;
   ["optIgnoreBg","optColors","optClean","optContrast","optBright"].forEach(id=>$(id).addEventListener("input", ()=>{
     $("colorsVal").textContent=$("optColors").value;
