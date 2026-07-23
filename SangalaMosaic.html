@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.13 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.14 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -142,7 +142,8 @@
         <button class="ebtn" id="lLower" title="Move it one step toward the back">Backward</button>
         <button class="ebtn" id="lBack"  title="Send this image behind all the others">To back</button>
       </div>
-      <button class="ebtn" id="lDel" title="Remove this image (or press the Delete key)" style="width:100%;margin-top:.5rem">Remove image</button>
+      <button class="ebtn" id="lBg" title="Make this image's plain background transparent, so the layers behind show through" style="width:100%;margin-top:.5rem">Remove background</button>
+      <button class="ebtn" id="lDel" title="Remove this image (or press the Delete key)" style="width:100%;margin-top:.35rem">Remove image</button>
     </div>
 
     <h2 class="marker sub">Grid</h2>
@@ -260,7 +261,7 @@
   function render(){
     const {w,h}=fitCanvas();
     ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h);                       // the workspace page
-    layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.img,L.x,L.y,L.w,L.h); });
+    layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });
     ensureFrame(); drawFrame(frame);                                      // the grid frame, on top of the images
     if(sel) drawHandles(sel.kind==="frame"?frame:sel.obj);               // selection handles
     $("empty").style.display = layers.length ? "none" : "";
@@ -319,7 +320,7 @@
     const fit=Math.min(1, w*0.8/iw, h*0.8/ih);                     // fit within the workspace, but NEVER upscale (crisp)
     iw*=fit; ih*=fit;
     const c=visibleCenter();                                       // drop it where the artist is looking, never below the fold
-    const L={img:im, x:Math.round(c.x-iw/2), y:Math.round(c.y-ih/2), w:iw, h:ih};
+    const L={img:im, draw:im, bgRemoved:false, x:Math.round(c.x-iw/2), y:Math.round(c.y-ih/2), w:iw, h:ih};
     layers.push(L); sel={kind:"layer",obj:L}; render();
     $("status").textContent = "Added "+(name||"an image")+" ("+im.naturalWidth+" × "+im.naturalHeight+" px). Drag to move, a corner to resize. Open another image to build a composite, then drag the grid frame over the part you want as the mosaic.";
   }
@@ -350,6 +351,7 @@
     $("lpos").textContent = n>1 ? ("Layer "+(i+1)+" of "+n+" — "+(i===n-1?"in front":i===0?"at the back":"in the middle")) : "The only image.";
     $("lFront").disabled = $("lRaise").disabled = (i>=n-1);
     $("lBack").disabled  = $("lLower").disabled = (i<=0);
+    $("lBg").textContent = sel.obj.bgRemoved ? "Restore background" : "Remove background";
   }
   function reorder(fn){ if(!sel||sel.kind!=="layer") return; const i=layers.indexOf(sel.obj); if(i<0) return; fn(i); render(); }
   $("lFront").onclick = ()=>reorder(i=>{ layers.splice(i,1); layers.push(sel.obj); });
@@ -357,6 +359,35 @@
   $("lLower").onclick = ()=>reorder(i=>{ if(i>0){ const t=layers[i]; layers[i]=layers[i-1]; layers[i-1]=t; } });
   $("lBack").onclick  = ()=>reorder(i=>{ layers.splice(i,1); layers.unshift(sel.obj); });
   $("lDel").onclick   = ()=>{ if(sel&&sel.kind==="layer"){ layers=layers.filter(L=>L!==sel.obj); sel=null; render(); } };
+
+  // Make the plain background transparent: flood-fill from the four corners, clearing pixels close to the
+  // corner color. Flooding from the EDGES (not a global threshold) keeps interior matches - the crane's
+  // white belly stays, because it is not connected to the outside background.
+  function removeBg(im){
+    const W=im.naturalWidth, H=im.naturalHeight, c=document.createElement("canvas"); c.width=W; c.height=H;
+    const x=c.getContext("2d"); x.drawImage(im,0,0);
+    let id; try{ id=x.getImageData(0,0,W,H); }catch(e){ return c; }   // tainted canvas -> give back the untouched copy
+    const d=id.data, at=(px,py)=>(py*W+px)*4;
+    const corners=[[0,0],[W-1,0],[0,H-1],[W-1,H-1]].map(([px,py])=>{const i=at(px,py); return [d[i],d[i+1],d[i+2]];});
+    const bg=[0,1,2].map(k=>Math.round(corners.reduce((s,c)=>s+c[k],0)/4));
+    const tol2=52*52, seen=new Uint8Array(W*H), stack=[];
+    const push=(px,py)=>{ if(px<0||py<0||px>=W||py>=H) return; const p=py*W+px; if(!seen[p]){ seen[p]=1; stack.push(px,py); } };
+    corners.forEach((_,k)=>push([0,W-1,0,W-1][k],[0,0,H-1,H-1][k]));
+    while(stack.length){
+      const py=stack.pop(), px=stack.pop(), i=at(px,py);
+      const dr=d[i]-bg[0],dg=d[i+1]-bg[1],db=d[i+2]-bg[2];
+      if(dr*dr+dg*dg+db*db>tol2) continue;                 // reached the subject edge - stop spreading
+      d[i+3]=0;                                             // clear this background pixel
+      push(px+1,py); push(px-1,py); push(px,py+1); push(px,py-1);
+    }
+    x.putImageData(id,0,0); return c;
+  }
+  $("lBg").onclick = ()=>{
+    if(!sel||sel.kind!=="layer") return; const L=sel.obj;
+    if(L.bgRemoved){ L.draw=L.img; L.bgRemoved=false; }
+    else { L.draw=removeBg(L.img); L.bgRemoved=true; }
+    render();
+  };
 
   // ---- keyboard: Delete removes the selected image ----
   document.addEventListener("keydown", e=>{
