@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.11 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.12 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -129,6 +129,20 @@
     <div id="bar"><div id="barfill"></div></div>
     <div id="status">Open a photo to begin.</div>
 
+    <div id="selimg" style="display:none;margin-top:.6rem;border-top:1px solid #d8c4a0;padding-top:.5rem">
+      <h2 class="marker sub" style="margin-top:0">Selected image</h2>
+      <div class="hint" id="lpos" style="margin-top:0"></div>
+      <div class="two" style="margin-top:.4rem">
+        <button class="ebtn" id="lFront" title="Bring this image in front of all the others">To front</button>
+        <button class="ebtn" id="lRaise" title="Move it one step toward the front">Forward</button>
+      </div>
+      <div class="two" style="margin-top:.35rem">
+        <button class="ebtn" id="lLower" title="Move it one step toward the back">Backward</button>
+        <button class="ebtn" id="lBack"  title="Send this image behind all the others">To back</button>
+      </div>
+      <button class="ebtn" id="lDel" title="Remove this image (or press the Delete key)" style="width:100%;margin-top:.5rem">Remove image</button>
+    </div>
+
     <h2 class="marker sub">Grid</h2>
     <div class="two">
       <label class="fld">Across<input type="number" id="gW" min="8" max="96" step="1" value="32"></label>
@@ -248,6 +262,7 @@
     ensureFrame(); drawFrame(frame);                                      // the grid frame, on top of the images
     if(sel) drawHandles(sel.kind==="frame"?frame:sel.obj);               // selection handles
     $("empty").style.display = layers.length ? "none" : "";
+    updateSelPanel();
   }
 
   // ---- pointer: click to select, drag the body to move, drag a corner to resize (aspect locked) ----
@@ -323,6 +338,23 @@
   $("gW").addEventListener("input", ()=>{ physical(); reshapeFrame(); render(); });
   $("gH").addEventListener("input", ()=>{ physical(); reshapeFrame(); render(); });
   $("bShowGrid").addEventListener("click", ()=>{ showGrid=!showGrid; $("bShowGrid").classList.toggle("on",showGrid); render(); });
+
+  // ---- layers: reorder / remove the selected image (layers[] is back-to-front) ----
+  function updateSelPanel(){
+    const on = sel && sel.kind==="layer";
+    $("selimg").style.display = on ? "" : "none";
+    if(!on) return;
+    const i=layers.indexOf(sel.obj), n=layers.length;
+    $("lpos").textContent = n>1 ? ("Layer "+(i+1)+" of "+n+" — "+(i===n-1?"in front":i===0?"at the back":"in the middle")) : "The only image.";
+    $("lFront").disabled = $("lRaise").disabled = (i>=n-1);
+    $("lBack").disabled  = $("lLower").disabled = (i<=0);
+  }
+  function reorder(fn){ if(!sel||sel.kind!=="layer") return; const i=layers.indexOf(sel.obj); if(i<0) return; fn(i); render(); }
+  $("lFront").onclick = ()=>reorder(i=>{ layers.splice(i,1); layers.push(sel.obj); });
+  $("lRaise").onclick = ()=>reorder(i=>{ if(i<layers.length-1){ const t=layers[i]; layers[i]=layers[i+1]; layers[i+1]=t; } });
+  $("lLower").onclick = ()=>reorder(i=>{ if(i>0){ const t=layers[i]; layers[i]=layers[i-1]; layers[i-1]=t; } });
+  $("lBack").onclick  = ()=>reorder(i=>{ layers.splice(i,1); layers.unshift(sel.obj); });
+  $("lDel").onclick   = ()=>{ if(sel&&sel.kind==="layer"){ layers=layers.filter(L=>L!==sel.obj); sel=null; render(); } };
 
   // ---- keyboard: Delete removes the selected image ----
   document.addEventListener("keydown", e=>{
