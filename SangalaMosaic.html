@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.22 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.23 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -36,6 +36,7 @@
   .tbtn small{font-size:.64rem;color:#eaf1f8;line-height:1.05;text-align:center}
   .tbtn:disabled{opacity:.42;cursor:default}                       /* a planned button, not yet built */
   .tbtn:disabled:hover .glyph{background:linear-gradient(#ffffff,#e7ecf2)}
+  .tbtn.on .glyph{background:linear-gradient(#bfe3ff,#8fcaf5);box-shadow:inset 0 0 0 2px #3f8fd0}   /* active view */
   .spacer{flex:1}
 
   /* --- left tool rail --- */
@@ -102,6 +103,7 @@
   <div class="tools">
     <button class="tbtn" id="bOpen" title="Open a photo (.png, .jpg)"><span class="glyph">📂</span><small>Open</small></button>
     <button class="tbtn" id="bView" disabled title="Switch between the photo and the built mosaic"><span class="glyph">👁️</span><small>View</small></button>
+    <button class="tbtn" id="bCompare" disabled title="Show the photo beside the mosaic, side by side, to compare"><span class="glyph">🆚</span><small>Compare</small></button>
     <button class="tbtn" id="bChart" disabled title="Coming soon — print the build chart and parts list"><span class="glyph">🖨️</span><small>Print chart</small></button>
     <button class="tbtn" id="bSettings" disabled title="Coming soon — image prep and grid detail"><span class="glyph">⚙️</span><small>Settings</small></button>
   </div>
@@ -282,7 +284,9 @@
     const {w,h}=fitCanvas();
     ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h);                       // the workspace page
     ensureFrame();
-    if(viewMode==="mosaic" && built){
+    if(viewMode==="compare" && built){
+      drawCompare();                                                      // photo beside mosaic, side by side
+    } else if(viewMode==="mosaic" && built){
       drawBuilt(); drawFrame(frame, showPlate);                           // built mosaic; studs show the grid, so cell lines only when the plate is hidden
     } else {
       layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });
@@ -317,7 +321,7 @@
       if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render();
       e.preventDefault(); return;
     }
-    if(viewMode==="mosaic"){ viewMode="photo"; render(); return; }   // first click leaves the result view, back to editing
+    if(viewMode==="mosaic"||viewMode==="compare"){ viewMode="photo"; render(); return; }   // first click leaves the result view, back to editing
     const p=pt(e), t=pick(p);
     if(!t){ if(sel){ sel=null; render(); } return; }
     sel=t.target; const b=sel.kind==="frame"?frame:sel.obj;
@@ -671,8 +675,8 @@
     }
     plateCache={key,canvas:cvp}; return cvp;
   }
-  function drawBuilt(){
-    const f=frame, gw=built.gw, gh=built.gh, idx=built.idx, cw=f.w/gw, ch=f.h/gh;
+  function drawBuilt(rect){
+    const f=rect||frame, gw=built.gw, gh=built.gh, idx=built.idx, cw=f.w/gw, ch=f.h/gh;
     if(showPlate) ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
     const inset=Math.max(0.5, Math.min(cw,ch)*0.05);                                     // thin seam between tiles
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
@@ -685,6 +689,28 @@
       ctx.strokeStyle="rgba(0,0,0,0.25)";
       ctx.beginPath(); ctx.moveTo(x+w-0.5,y+0.5); ctx.lineTo(x+w-0.5,y+h-0.5); ctx.lineTo(x+0.5,y+h-0.5); ctx.stroke(); // bottom/right shade
     }
+  }
+  // Side-by-side: the framed source photo on the left, the built mosaic on the right - so the crane can be
+  // compared with its mosaic without dropping a second image or disturbing the grid.
+  function drawCompare(){
+    const {w,h}=boardCss(), gap=26, labelH=24, availH=h-labelH-6, paneW=(w-gap)/2, ar=built.gw/built.gh;
+    const paneRect=px=>{ let pw=paneW, ph=pw/ar; if(ph>availH){ ph=availH; pw=ph*ar; } return {x:px+(paneW-pw)/2, y:labelH+(availH-ph)/2, w:pw, h:ph}; };
+    const left=paneRect(0), right=paneRect(paneW+gap);
+    ctx.save(); ctx.beginPath(); ctx.rect(left.x,left.y,left.w,left.h); ctx.clip();   // left: the framed photo, scaled to fill
+    ctx.fillStyle="#fff"; ctx.fillRect(left.x,left.y,left.w,left.h);
+    const s=left.w/frame.w;
+    ctx.translate(left.x,left.y); ctx.scale(s,s); ctx.translate(-frame.x,-frame.y);
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+    layers.forEach(L=>ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h));
+    ctx.restore();
+    drawBuilt(right);                                                                  // right: the mosaic on its baseplate
+    ctx.save();
+    ctx.strokeStyle="rgba(35,35,50,0.55)"; ctx.lineWidth=1.5;
+    ctx.strokeRect(left.x+0.5,left.y+0.5,left.w-1,left.h-1); ctx.strokeRect(right.x+0.5,right.y+0.5,right.w-1,right.h-1);
+    ctx.fillStyle="#3a2f1e"; ctx.font="700 13px system-ui,-apple-system,sans-serif"; ctx.textAlign="center";
+    ctx.fillText("Photo", left.x+left.w/2, left.y-7);
+    ctx.fillText("Mosaic", right.x+right.w/2, right.y-7);
+    ctx.restore();
   }
   function buildBaseplates(){
     const box=$("baseplates"); box.innerHTML="";
@@ -707,11 +733,18 @@
     $("bom").innerHTML=h;
   }
 
-  function invalidate(){ if(built){ built=null; renderBOM(); clearHistory(); } viewMode="photo"; $("bView").classList.remove("on"); }
-  function updateButtons(){ $("bBuild").disabled=(layers.length===0); $("bView").disabled=!built; }
+  function invalidate(){ if(built){ built=null; renderBOM(); clearHistory(); } viewMode="photo"; }
+  function updateButtons(){
+    $("bBuild").disabled=(layers.length===0);
+    $("bView").disabled=!built; $("bCompare").disabled=!built;
+    $("bView").classList.toggle("on", viewMode==="mosaic");
+    $("bCompare").classList.toggle("on", viewMode==="compare");
+  }
 
   $("bBuild").onclick = build;
-  $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; $("bView").classList.toggle("on",viewMode==="mosaic"); render(); };
+  $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; render(); };
+  $("bCompare").onclick = ()=>{ if(!built) return; viewMode = viewMode==="compare"?"photo":"compare";
+    $("status").textContent = viewMode==="compare" ? "Comparing: the photo (left) beside the mosaic (right). Click the workspace to go back to editing." : "Editing."; render(); };
   $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
   $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
   $("tErase").onclick=()=>setTool(activeTool==="erase"?"select":"erase");

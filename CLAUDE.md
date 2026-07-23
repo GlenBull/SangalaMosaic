@@ -120,6 +120,15 @@ date convention as Sangala Studio; bump it on any shipped change.
   `removeBg`-isolated copy per layer so the backdrop is empty and thin parts survive), **Colors**,
   **Clean up**, **Contrast**, **Brightness**; changing any re-maps live once a mosaic exists. The
   menu **View** button toggles photo↔mosaic; any edit to the composite invalidates it (`invalidate()`).
+- **Compare view** (`bView`'s sibling `bCompare`, `viewMode==="compare"`) shows the **framed source
+  photo beside the mosaic**, side by side, each pane labeled and fit to the grid's aspect — the direct
+  way to compare the animal with its mosaic. `drawCompare()` clips+scales the composite into the left
+  pane and calls `drawBuilt(rect)` (now takes an optional target rect, default the frame) into the
+  right. It removes the need users had to drop a *second* reference image beside the mosaic — which
+  didn't work, because adding any image calls `invalidate()` (the old mosaic no longer matches the
+  changed composite) and moving any layer/frame invalidates too. Clicking the workspace, or View,
+  leaves Compare. View/Compare active state shows on the menu button (`.tbtn.on .glyph`) and is
+  centralized in `updateButtons()`.
 - **Baseplate render.** The built mosaic sits on a **studded LEGO baseplate**: `getPlate()` draws a
   cached (dpr-scaled) plate of round studs across the frame, and `drawBuilt()` draws each tile
   **raised** above it (bevel highlight/shade + a drop shadow + a thin seam inset), so tiles read as
