@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.1 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.2 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -7,7 +7,9 @@
 <title>Sangala Mosaic</title>
 <style>
   /* Look and feel shared with Sangala Studio (Silhouette Tools/SangalaStudio.html). Copied, not
-     linked: when Studio's styling changes, port it here deliberately. No coupling to break. */
+     linked: when Studio's styling changes, port it here deliberately. No coupling to break.
+     Four regions mirror Studio: menu bar (header) · left tool rail (.ltools) · workspace
+     (.board) · right control panel (#build, the Fabricate-panel equivalent). */
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#26303a;background:#37587a}
   .denim{background-color:#3f6b8e;
@@ -19,6 +21,7 @@
     background-size:7px 7px,11px 11px;background-position:0 0,3px 5px;}
   .marker{font-family:"Ink Free","Segoe Print","Bradley Hand","Comic Sans MS",cursive;}
 
+  /* --- menu bar (top) --- */
   header{display:flex;align-items:center;gap:.6rem;padding:.45rem .8rem;border-bottom:3px solid #2c4a66}
   .logo{color:#fff}
   .logo b{font-size:1.5rem;line-height:1;display:block}
@@ -30,23 +33,52 @@
   .tbtn:hover .glyph{background:linear-gradient(#ffffff,#dbe6f3)}
   .tbtn .glyph img{width:100%;height:100%;display:block;border-radius:inherit;object-fit:cover}
   .tbtn small{font-size:.64rem;color:#eaf1f8;line-height:1.05;text-align:center}
+  .tbtn:disabled{opacity:.42;cursor:default}                       /* a planned button, not yet built */
+  .tbtn:disabled:hover .glyph{background:linear-gradient(#ffffff,#e7ecf2)}
   .spacer{flex:1}
 
-  .stage{display:grid;grid-template-columns:1fr 320px;gap:.7rem;padding:.7rem}
+  /* --- left tool rail --- */
+  .ltools{display:flex;flex-direction:column;gap:.4rem;align-self:start}
+  .ltitle{font-size:.8rem;color:#eaf1f8;text-align:center;margin:.1rem 0 .1rem}
+  .ltbtn{width:52px;height:52px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;
+    background:linear-gradient(#fffdf7,#e8dcc2);border:2px solid #c9b48c;box-shadow:0 2px 3px rgba(0,0,0,.22);color:#7a3b12;font-size:1.35rem;line-height:1}
+  .ltbtn small{font-size:.52rem;color:#7a3b12}
+  .ltbtn:hover{background:linear-gradient(#ffffff,#f0e7d3)}
+  .ltbtn.on{background:linear-gradient(#bfe3ff,#8fcaf5);border-color:#3f8fd0;box-shadow:inset 0 1px 0 #fff,0 0 0 2px rgba(63,143,208,.45),0 2px 3px rgba(0,0,0,.28)}
+  .ltbtn:disabled{opacity:.38;cursor:default;box-shadow:none}
+  .ltbtn:disabled:hover{background:linear-gradient(#fffdf7,#e8dcc2)}
+
+  /* --- three-region stage: left rail (auto) · workspace (1fr) · control panel (300px) --- */
+  .stage{display:grid;grid-template-columns:auto 1fr 300px;gap:.7rem;padding:.7rem}
   .panel{border-radius:12px;padding:.7rem;border:2px solid #d8c4a0;background:#efe0c4;box-shadow:0 3px 8px rgba(0,0,0,.25)}
   .panel h2{margin:.1rem 0 .5rem;font-size:1.05rem;color:#7a3b12}
-  .panel .hint{font-size:.85rem;color:#6b5a44;line-height:1.5}
-  .panel dl{margin:.6rem 0 0;font-size:.85rem;color:#5a4326}
-  .panel dt{color:#8a7350;margin-top:.4rem}
-  .panel dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums}
+  .panel h2.sub{margin-top:.75rem;font-size:.95rem}
+  .hint{font-size:.78rem;color:#6b5a44;line-height:1.5;margin-top:.4rem}
+  label.fld{display:block;font-size:.8rem;color:#6b5a44;margin:.5rem 0 .1rem}
+  select,input[type=number]{font-size:1rem;padding:.2rem .3rem;border:1px solid #cbb78f;border-radius:6px;background:#fffaf0;width:100%}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
 
+  /* --- workspace / mat --- */
   .board{position:relative;border-radius:12px;padding:14px;border:6px solid #8a6a44;
-    box-shadow:inset 0 0 24px rgba(60,40,20,.4);min-height:72vh;display:flex;align-items:center;justify-content:center}
+    box-shadow:inset 0 0 24px rgba(60,40,20,.4);min-height:74vh;display:flex;align-items:center;justify-content:center}
   body.dropping .board{border-color:#2d7bb8;box-shadow:0 0 0 4px rgba(45,123,184,.55),inset 0 0 24px rgba(60,40,20,.4)}
-  #cv{max-width:100%;max-height:78vh;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.35);background:#fff;display:none}
-  #empty{color:#5a4326;text-align:center;font-size:1rem;line-height:1.6;user-select:none;opacity:.9}
-  #empty b{display:block;font-size:1.15rem;margin-bottom:.3rem;color:#4a3620}
+  #cv{max-width:100%;max-height:80vh;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.35);background:#fff;display:none}
+  #empty{color:#4a3620;text-align:center;font-size:1rem;line-height:1.6;user-select:none;opacity:.92}
+  #empty b{display:block;font-size:1.15rem;margin-bottom:.3rem}
 
+  /* --- control-panel widgets (Studio's .go / .ebtn / status / bar) --- */
+  .go{width:100%;font-size:1.4rem;font-weight:800;color:#fff;background:linear-gradient(#1fa85a,#178047);
+      border:1px solid #0f6e34;border-radius:14px;padding:.8rem;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 3px 6px rgba(0,0,0,.3)}
+  .go:disabled{opacity:.5;cursor:default}
+  .ebtn{font-size:.9rem;padding:.5rem;border-radius:9px;border:1px solid #b7c1cd;background:linear-gradient(#fff,#e7ecf2);box-shadow:inset 0 1px 0 #fff,0 2px 3px rgba(0,0,0,.22);cursor:pointer;color:#26303a}
+  .ebtn:hover{background:linear-gradient(#fff,#dbe6f3)}
+  .ebtn:disabled{opacity:.45;cursor:default;box-shadow:none}
+  #status{font-size:.92rem;color:#5a4a34;min-height:2.2rem;line-height:1.4;margin-top:.5rem}
+  #bar{height:12px;background:#e3d6bd;border-radius:6px;overflow:hidden;margin:.6rem 0;display:none}
+  #barfill{height:100%;width:0;background:#1fa85a;transition:width .2s}
+  .soon{color:#9a8a6a;font-style:italic}
+
+  /* --- About modal --- */
   .modal{position:fixed;inset:0;background:rgba(20,30,42,.55);display:none;align-items:center;justify-content:center;z-index:50}
   .modal.show{display:flex}
   .card{max-width:480px;background:#efe0c4;border:2px solid #d8c4a0;border-radius:14px;padding:1.1rem 1.3rem;box-shadow:0 8px 24px rgba(0,0,0,.4)}
@@ -57,10 +89,15 @@
 </style>
 </head>
 <body class="denim">
+
+<!-- (1) MENU BAR -->
 <header class="denim">
-  <div class="logo"><b class="marker">Sangala Mosaic</b><small>Mosaic design tool</small></div>
+  <div class="logo"><b class="marker">Sangala Mosaic</b><small>MOSAIC DESIGN TOOL</small></div>
   <div class="tools">
-    <button class="tbtn" id="bOpen" title="Open a photo (.png, .jpg)"><span class="glyph">📷</span><small>Open</small></button>
+    <button class="tbtn" id="bOpen" title="Open a photo (.png, .jpg)"><span class="glyph">📂</span><small>Open</small></button>
+    <button class="tbtn" id="bView" disabled title="Coming soon — switch between the photo and the finished mosaic"><span class="glyph">👁️</span><small>View</small></button>
+    <button class="tbtn" id="bChart" disabled title="Coming soon — print the build chart and parts list"><span class="glyph">🖨️</span><small>Print chart</small></button>
+    <button class="tbtn" id="bSettings" disabled title="Coming soon — image prep and grid detail"><span class="glyph">⚙️</span><small>Settings</small></button>
   </div>
   <div class="spacer"></div>
   <button class="tbtn" id="bAbout" title="About Sangala Mosaic"><span class="glyph"><img src="data:image/png;base64,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" alt=""></span><small>About</small></button>
@@ -68,18 +105,48 @@
 </header>
 
 <div class="stage">
+
+  <!-- (2) LEFT TOOL RAIL -->
+  <div class="ltools">
+    <div class="ltitle marker">Tools</div>
+    <button class="ltbtn" id="tPhoto" disabled title="Coming soon — move and zoom the photo under the grid">🖼️<small>Photo</small></button>
+    <button class="ltbtn" id="tFrame" disabled title="Coming soon — move and resize the framing grid">⊞<small>Frame</small></button>
+    <button class="ltbtn" id="tPaint" disabled title="Coming soon — click a tile to set its color by hand">🖌️<small>Paint</small></button>
+    <button class="ltbtn" id="tPick"  disabled title="Coming soon — sample a color to paint with">💧<small>Pick</small></button>
+  </div>
+
+  <!-- (3) WORKSPACE / MAT -->
   <div class="board cork" id="board">
     <canvas id="cv"></canvas>
     <div id="empty"><b>Open a photo to begin</b>Click <em>Open</em>, or drag a photo onto the workspace.</div>
   </div>
-  <div class="panel" id="side">
-    <h2 class="marker">Mosaic</h2>
-    <p class="hint">This is the starting shell. The photo layer, the grid you slide to frame it, and
-      the mapping to LEGO-tile colors will appear here as they are built.</p>
-    <dl id="info" style="display:none">
-      <dt>Photo</dt><dd id="iName">—</dd>
-      <dt>Size</dt><dd id="iSize">—</dd>
-    </dl>
+
+  <!-- (4) CONTROL PANEL (the Fabricate-panel equivalent) -->
+  <div class="panel" id="build">
+    <h2 class="marker">Build</h2>
+    <button class="go" id="bBuild" disabled title="Coming soon — map the photo to your tiles">Build It!</button>
+    <div id="bar"><div id="barfill"></div></div>
+    <div id="status">Open a photo to begin.</div>
+
+    <h2 class="marker sub">Grid</h2>
+    <div class="two">
+      <label class="fld">Across<input type="number" id="gW" min="8" max="96" step="1" value="32"></label>
+      <label class="fld">Down<input type="number" id="gH" min="8" max="96" step="1" value="32"></label>
+    </div>
+    <div class="hint" id="physical"></div>
+    <div class="two" style="margin-top:.5rem">
+      <button class="ebtn" id="bShowGrid" disabled title="Coming soon">Show grid</button>
+      <button class="ebtn" id="bFitGrid"  disabled title="Coming soon">Fit to photo</button>
+    </div>
+
+    <h2 class="marker sub">Palette — your tiles</h2>
+    <div class="hint">Mapping will use only the tile colors you own, and the parts list counts them.
+      <span class="soon">Coming soon.</span></div>
+    <button class="ebtn" id="bPalette" disabled title="Coming soon" style="width:100%;margin-top:.45rem">Edit palette…</button>
+
+    <h2 class="marker sub">Bill of materials</h2>
+    <div class="hint" id="bom">Tile counts per color appear here once the photo is mapped.
+      <span class="soon">Coming soon.</span></div>
   </div>
 </div>
 
@@ -99,11 +166,23 @@
 (() => {
   const $ = id => document.getElementById(id);
   const cv = $("cv"), ctx = cv.getContext("2d");
+  const TILE_MM = 8;           // LEGO 1x1 tile pitch on a baseplate
   let img = null;
 
+  // --- grid size -> live physical-size readout (real; the mapping itself is not built yet) ---
+  function physical(){
+    const w = Math.max(1, +$("gW").value||0), h = Math.max(1, +$("gH").value||0);
+    const mmW = w*TILE_MM, mmH = h*TILE_MM;
+    const inW = (mmW/25.4).toFixed(1), inH = (mmH/25.4).toFixed(1);
+    $("physical").innerHTML = w + " × " + h + " tiles · " + mmW + " × " + mmH + " mm · &approx; " + inW + " × " + inH + " in";
+  }
+  $("gW").addEventListener("input", physical);
+  $("gH").addEventListener("input", physical);
+  physical();
+
+  // --- photo layer (the one real capability today) ---
   function drawImage(){
     if(!img) return;
-    // "contain" fit inside a sensible pixel box; CSS then scales it down to the board.
     const MAX = 1400, s = Math.min(1, MAX/img.naturalWidth, MAX/img.naturalHeight);
     cv.width = Math.round(img.naturalWidth*s);
     cv.height = Math.round(img.naturalHeight*s);
@@ -112,27 +191,21 @@
     cv.style.display = "block";
     $("empty").style.display = "none";
   }
-
   function loadFile(f){
-    if(!f || !/^image\//.test(f.type)){ return; }
+    if(!f || !/^image\//.test(f.type)) return;
     const url = URL.createObjectURL(f);
     const im = new Image();
     im.onload = () => {
-      img = im;
-      drawImage();
-      $("info").style.display = "block";
-      $("iName").textContent = f.name;
-      $("iSize").textContent = im.naturalWidth + " × " + im.naturalHeight + " px";
+      img = im; drawImage();
+      $("status").textContent = "Loaded " + f.name + " (" + im.naturalWidth + " × " + im.naturalHeight + " px). Mapping tools are coming soon.";
       URL.revokeObjectURL(url);
     };
     im.onerror = () => URL.revokeObjectURL(url);
     im.src = url;
   }
-
   $("bOpen").onclick = () => $("file").click();
   $("file").onchange = e => { if(e.target.files[0]) loadFile(e.target.files[0]); e.target.value=""; };
 
-  // drag-and-drop a photo anywhere onto the page
   document.addEventListener("dragover", e => { e.preventDefault(); document.body.classList.add("dropping"); });
   document.addEventListener("dragleave", e => { if(e.target === document.documentElement) document.body.classList.remove("dropping"); });
   document.addEventListener("drop", e => {
@@ -141,7 +214,7 @@
     if(f) loadFile(f);
   });
 
-  // About
+  // --- About ---
   $("bAbout").onclick = () => $("about").classList.add("show");
   $("aClose").onclick = () => $("about").classList.remove("show");
   $("about").addEventListener("click", e => { if(e.target === $("about")) $("about").classList.remove("show"); });
