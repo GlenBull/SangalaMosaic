@@ -110,11 +110,16 @@ date convention as Sangala Studio; bump it on any shipped change.
     (a per-image toggle in the Selected panel; flood-fill from the corners + feather + decontaminate)
     swaps a transparent version in without losing the original.
 - **Build It! is live** (the centerpiece). `PALETTE` is ~25 real LEGO solid tile colors, each with
-  an `own` flag; the swatch row in the panel toggles ownership (click). Build samples the composite
-  inside the frame to an offscreen buffer at gw×gh×SUB, votes each cell to the nearest OWNED colour
-  (redmean distance; mode-per-cell, not average, to avoid muddy blends), renders the tile mosaic in
-  the frame, and fills the **bill of materials** (counts per colour, sorted; total = gw·gh). The
-  menu **View** button toggles photo↔mosaic; any edit invalidates the built mosaic (`invalidate()`).
+  an `own` flag; the swatch row toggles ownership (click). The pipeline (toward the "gold standard"
+  clean look, per the design discussion): sample the framed composite to an offscreen (smoothing OFF,
+  8/cell) → **average** each cell's non-background samples (flattens feather texture) → **k-means to
+  K colors** (the `Colors` slider) and snap each group to its nearest OWNED tile (a textured body
+  becomes one gray, not five) → **cleanup** (two gentle passes: fill pinholes, drop lone strays,
+  recolour outvoted speckle; conservative so 1-tile legs survive). Fills the **bill of materials**
+  (counts per colour; total = TILED cells). Options: **Ignore background** (default on — samples a
+  `removeBg`-isolated copy per layer so the backdrop is empty and thin parts survive), **Colors**,
+  **Clean up**, **Contrast**, **Brightness**; changing any re-maps live once a mosaic exists. The
+  menu **View** button toggles photo↔mosaic; any edit to the composite invalidates it (`invalidate()`).
 - The workspace is **pinned to the viewport** (body flex column, 100vh, overflow hidden); the panel
   scrolls internally if tall — no page scroll.
 - Still disabled placeholders: **Print chart** (would print the chart + BOM), **Settings** (image
@@ -122,6 +127,9 @@ date convention as Sangala Studio; bump it on any shipped change.
   whether to repurpose or drop). No dither/contrast controls yet.
 - Test material in `images/`: `Crested Crane.png`, `African Buffalo (LEGO).jpg`, the crane/buffalo
   reference mosaics, `Samweli Wanda.png`.
-- **Next candidates:** owned-tile *quantities* (cap a colour, overflow to next-nearest); Print chart
-  (numbered build chart + parts list); image prep (contrast/levels, dither toggle default off);
-  porting Studio's ML background removal (u2netp) for busy backgrounds.
+- **Agreed direction (2026-07-23):** the auto-conversion gets you ~80% toward the "gold standard"
+  hand-built mosaic; the rest is hand cleanup. So **the Paint tool is the priority next step** — click
+  a cell to set its tile by hand, to fix legs/silhouette/features after Build. Then: **background
+  fill** (fill empty cells with a chosen tile — the green baseplate + a grass row); owned-tile
+  *quantities* (cap a colour, overflow to next-nearest); Print chart (numbered chart + parts list);
+  porting Studio's ML background removal (u2netp) for busy backgrounds; optional dither.

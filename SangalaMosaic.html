@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.17 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.18 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -162,6 +162,9 @@
     <h2 class="marker sub">Options</h2>
     <label style="display:flex;align-items:flex-start;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.15rem">
       <input type="checkbox" id="optIgnoreBg" checked style="width:auto;margin:.15rem 0 0"> Ignore the background — leave it as empty cells so thin parts (legs, neck) aren't lost</label>
+    <label class="fld" style="margin-top:.5rem">Colors — how many <span id="colorsVal" style="font-weight:700"></span><input type="range" id="optColors" min="2" max="16" value="9" style="width:100%"></label>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.25rem">
+      <input type="checkbox" id="optClean" checked style="width:auto;margin:0"> Clean up stray tiles</label>
     <label class="fld" style="margin-top:.5rem">Contrast<input type="range" id="optContrast" min="-100" max="100" value="0" style="width:100%"></label>
     <label class="fld" style="margin-top:.15rem">Brightness<input type="range" id="optBright" min="-100" max="100" value="0" style="width:100%"></label>
 
@@ -468,6 +471,38 @@
     return (2+rm/256)*dr*dr + 4*dg*dg + (2+(255-rm)/256)*db*db; }
   function nearestOwned(rgb, owned){ let bi=owned[0], bd=1e18; for(const o of owned){ const d=dist2(rgb,o.rgb); if(d<bd){bd=d;bi=o;} } return bi; }
 
+  // k-means on the cell colours -> K coherent groups, so a textured body becomes ONE gray instead of five.
+  // Deterministic farthest-point init (no RNG). dist2 is the redmean distance defined below.
+  function kmeans(pts, K){
+    if(pts.length<=K) return {centroids:pts.map(p=>p.slice()), assign:pts.map((_,i)=>i)};
+    const cen=[pts[0].slice()];
+    while(cen.length<K){ let far=pts[0],fd=-1; for(const p of pts){ let dm=1e18; for(const c of cen){ const d=dist2(p,c); if(d<dm)dm=d; } if(dm>fd){fd=dm;far=p;} } cen.push(far.slice()); }
+    const assign=new Array(pts.length).fill(0);
+    for(let it=0;it<10;it++){
+      for(let i=0;i<pts.length;i++){ let bi=0,bd=1e18; for(let k=0;k<cen.length;k++){ const d=dist2(pts[i],cen[k]); if(d<bd){bd=d;bi=k;} } assign[i]=bi; }
+      const s=cen.map(()=>[0,0,0,0]);
+      for(let i=0;i<pts.length;i++){ const a=assign[i],p=pts[i]; s[a][0]+=p[0];s[a][1]+=p[1];s[a][2]+=p[2];s[a][3]++; }
+      for(let k=0;k<cen.length;k++) if(s[k][3]) cen[k]=[s[k][0]/s[k][3],s[k][1]/s[k][3],s[k][2]/s[k][3]];
+    }
+    return {centroids:cen, assign};
+  }
+  // Tidy the tile grid: fill pinholes, drop fully-isolated strays, recolour clearly outvoted speckle - all
+  // conservatively, so a 1-tile-wide leg (which still has neighbours above and below) is never eroded.
+  function cleanup(idx, gw, gh){
+    const at=(r,c)=> (r<0||c<0||r>=gh||c>=gw)?undefined:idx[r][c];
+    const out=idx.map(row=>row.slice());
+    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
+      const nb={}; let empties=0;
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){ if(!dr&&!dc) continue; const v=at(r+dr,c+dc); if(v===undefined) continue; if(v<0) empties++; else nb[v]=(nb[v]||0)+1; }
+      let mv=-1,mn=0; for(const k in nb){ if(nb[k]>mn){mn=nb[k];mv=+k;} }
+      const cur=idx[r][c];
+      if(cur<0){ if(empties<=1 && mn>=6) out[r][c]=mv; }          // pinhole inside a solid region -> fill
+      else if(empties>=8) out[r][c]=-1;                           // a tile alone in empty space -> drop
+      else if(mv>=0 && mv!==cur && mn>=7) out[r][c]=mv;           // outvoted speckle -> match its neighbours
+    }
+    return out;
+  }
+
   // With "Ignore background" on, sample a background-removed copy of each layer so the plain backdrop drops
   // out - and its interior whites (the crane's belly) survive, because removeBg floods from the edges, not by
   // colour. Cached per layer as _iso. A layer the artist already removed just uses its own transparent draw.
@@ -483,6 +518,7 @@
     const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb})).filter(o=>PALETTE[o.i].own);
     if(!owned.length){ $("status").textContent="Turn on at least one tile color in the palette first."; return; }
     const ignoreBg=$("optIgnoreBg").checked, contrast=+$("optContrast").value, bright=+$("optBright").value;
+    const K=Math.min(+$("optColors").value, owned.length), doClean=$("optClean").checked;
     const cf=1+contrast/100, bAdd=bright*1.28, adj=v=>{ v=(v-128)*cf+128+bAdd; return v<0?0:v>255?255:v; };
     // Render the framed composite to an offscreen buffer with smoothing OFF, so thin features (the legs,
     // the neck) stay crisp rather than blurring into the background. A few samples per cell.
@@ -493,27 +529,34 @@
     layers.forEach(L=>o.drawImage(sampleSrc(L,ignoreBg),L.x,L.y,L.w,L.h));   // ignore-bg -> sample a bg-removed copy
     o.restore();
     const d=o.getImageData(0,0,sw,sh).data;
-    const isBg=p=>ignoreBg && d[p+3]<40;                                     // transparent (removed backdrop) -> empty cell
-    // Each cell votes among its NON-background sub-samples (mode). A cell with any subject wins subject, so a
-    // thin leg crossing a mostly-empty cell still becomes a tile instead of being outvoted by the backdrop.
-    const idx=[], counts={};
-    for(let r=0;r<gh;r++){ idx[r]=[];
-      for(let c=0;c<gw;c++){
-        const v={}; let fg=0;
-        for(let yy=0;yy<SUB;yy++) for(let xx=0;xx<SUB;xx++){
-          const p=(((r*SUB+yy)*sw)+(c*SUB+xx))*4;
-          if(isBg(p)) continue;
-          fg++; const oi=nearestOwned([adj(d[p]),adj(d[p+1]),adj(d[p+2])], owned).i; v[oi]=(v[oi]||0)+1;
-        }
-        if(!fg){ idx[r][c]=-1; continue; }                       // all background -> an empty cell (no tile)
-        let bi=-1,bn=-1; for(const k in v){ if(v[k]>bn){bn=v[k];bi=+k;} }
-        idx[r][c]=bi; counts[bi]=(counts[bi]||0)+1;
+    // 2. AVERAGE each cell's non-background samples -> a smooth low-res image (flattens feather texture).
+    //    A cell with no subject at all is empty. Contrast/brightness are applied to the average.
+    const cellCol=new Array(gw*gh).fill(null), pts=[], ptCell=[];
+    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
+      let R=0,G=0,B=0,n=0;
+      for(let yy=0;yy<SUB;yy++) for(let xx=0;xx<SUB;xx++){
+        const p=(((r*SUB+yy)*sw)+(c*SUB+xx))*4;
+        if(ignoreBg && d[p+3]<40) continue;
+        R+=d[p]; G+=d[p+1]; B+=d[p+2]; n++;
       }
+      if(!n) continue;
+      const ci=r*gw+c, col=[adj(R/n),adj(G/n),adj(B/n)]; cellCol[ci]=col; pts.push(col); ptCell.push(ci);
     }
+    // 3. reduce to K coherent colours (k-means on the cell colours), snap each group to its nearest OWNED tile
+    const cellTile=new Array(gw*gh).fill(-1);
+    if(pts.length){
+      const km=kmeans(pts, Math.max(1,K));
+      const clusterTile=km.centroids.map(c=>nearestOwned(c, owned).i);
+      for(let i=0;i<pts.length;i++) cellTile[ptCell[i]]=clusterTile[km.assign[i]];
+    }
+    let idx=[]; for(let r=0;r<gh;r++){ idx[r]=[]; for(let c=0;c<gw;c++) idx[r][c]=cellTile[r*gw+c]; }
+    // 4. clean up (two gentle passes): kill speckle, fill pinholes, drop lone strays
+    if(doClean){ idx=cleanup(idx,gw,gh); idx=cleanup(idx,gw,gh); }
+    const counts={}; for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const v=idx[r][c]; if(v>=0) counts[v]=(counts[v]||0)+1; }
     built={gw,gh,idx,counts}; viewMode="mosaic";
     renderBOM(); render();
     const tiled=Object.values(counts).reduce((a,b)=>a+b,0);
-    $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles"+(tiled<gw*gh?", "+(gw*gh-tiled)+" empty":"")+". Parts list below; press View to compare with the photo.";
+    $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+Object.keys(counts).length+" colors. Press View to compare with the photo.";
   }
 
   function drawBuilt(){
@@ -543,7 +586,11 @@
 
   $("bBuild").onclick = build;
   $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; $("bView").classList.toggle("on",viewMode==="mosaic"); render(); };
-  ["optIgnoreBg","optContrast","optBright"].forEach(id=>$(id).addEventListener("input", ()=>{ if(built||viewMode==="mosaic") build(); }));   // live re-map once built
+  $("colorsVal").textContent=$("optColors").value;
+  ["optIgnoreBg","optColors","optClean","optContrast","optBright"].forEach(id=>$(id).addEventListener("input", ()=>{
+    $("colorsVal").textContent=$("optColors").value;
+    if(built||viewMode==="mosaic") build();   // live re-map once a mosaic exists
+  }));
   buildSwatches();
 
   physical(); render();
