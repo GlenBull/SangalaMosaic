@@ -5,3 +5,6 @@ Desktop.ini
 *.tmp
 *.bak
 ~$*
+
+# Archived doc versions — the main Documents folder shows only the current version
+Documents/.Archive/
