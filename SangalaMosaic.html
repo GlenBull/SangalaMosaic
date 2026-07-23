@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.8 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.9 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -181,18 +181,33 @@
   $("gH").addEventListener("input", () => { physical(); render(); });
   physical();
 
-  // --- the tile grid over the mat: one cell per tile (gw x gh), the mosaic area itself ---
+  // --- the tile grid over the mat, with a header row of numbers (1..gw) across the top and a column of
+  //     letters (A..Z, then AA, AB, ... past Z) down the left, so any cell can be named - e.g. cell 2C is
+  //     column 2, row C. ---
   let showGrid = true;
-  function drawGrid(mW, mH, gw, gh){
+  function rowLabel(n){                        // 0-indexed row -> A, B, ... Z, AA, AB, ... (spreadsheet style)
+    let s=""; n++;
+    while(n>0){ n--; s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26); }
+    return s;
+  }
+  function drawGrid(ox, oy, w, h, gw, gh, gL, gT, font){   // ox,oy,w,h = the cell area; gL,gT = gutter sizes
     ctx.save();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(45,45,55,0.30)";
+    ctx.fillStyle = "#efe6d3";                             // light header strips behind the labels
+    if(gT>0) ctx.fillRect(0, 0, ox+w, gT);
+    if(gL>0) ctx.fillRect(0, 0, gL, oy+h);
+    ctx.lineWidth = 1; ctx.strokeStyle = "rgba(45,45,55,0.30)";
     ctx.beginPath();
-    for(let i=1;i<gw;i++){ const x = Math.round(i*mW/gw)+0.5; ctx.moveTo(x,0); ctx.lineTo(x,mH); }   // cell columns
-    for(let j=1;j<gh;j++){ const y = Math.round(j*mH/gh)+0.5; ctx.moveTo(0,y); ctx.lineTo(mW,y); }   // cell rows
+    for(let i=1;i<gw;i++){ const x = Math.round(ox + i*w/gw)+0.5; ctx.moveTo(x, oy); ctx.lineTo(x, oy+h); }   // cell columns
+    for(let j=1;j<gh;j++){ const y = Math.round(oy + j*h/gh)+0.5; ctx.moveTo(ox, y); ctx.lineTo(ox+w, y); }   // cell rows
     ctx.stroke();
     ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(30,30,45,0.55)";   // a firmer outer border marks the mosaic edge
-    ctx.strokeRect(0.75, 0.75, mW-1.5, mH-1.5);
+    ctx.strokeRect(ox+0.75, oy+0.75, w-1.5, h-1.5);
+    if(font>0){                                            // coordinate labels
+      ctx.fillStyle = "#5a4a34"; ctx.font = "600 "+font+"px system-ui,-apple-system,sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      for(let c=0;c<gw;c++) ctx.fillText(String(c+1), ox + (c+0.5)*w/gw, gT/2 + 0.5);   // numbers across the top
+      for(let r=0;r<gh;r++) ctx.fillText(rowLabel(r),  gL/2,             oy + (r+0.5)*h/gh);   // letters down the left
+    }
     ctx.restore();
   }
 
@@ -213,17 +228,23 @@
     cv.width = Math.round(mW*dpr); cv.height = Math.round(mH*dpr);   // backing store at device resolution -> no blur
     ctx.setTransform(dpr,0,0,dpr,0,0);                           // draw in CSS px; dpr handles the crispness
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,mW,mH);
+    // reserve a header gutter for the coordinate labels while the grid is shown
+    const approxCell = Math.min(mW/gw, mH/gh);
+    const font = Math.max(7, Math.min(12, approxCell*0.55));
+    const gT = showGrid ? Math.round(font*1.9) : 0;             // top gutter (column numbers)
+    const gL = showGrid ? Math.round(font*2.4) : 0;             // left gutter (row letters, room for 2 chars)
+    const ox = gL, oy = gT, caW = mW-gL, caH = mH-gT;           // the cell area the photo + grid occupy
     if(img){
-      const s = Math.min(1, mW*0.7/img.naturalWidth, mH*0.7/img.naturalHeight);   // up to 70%, never enlarge past 1:1
+      const s = Math.min(1, caW*0.7/img.naturalWidth, caH*0.7/img.naturalHeight);   // up to 70%, never enlarge past 1:1
       const w = img.naturalWidth*s, h = img.naturalHeight*s;
       ctx.imageSmoothingEnabled = s < 1;                        // smooth only when shrinking; at 1:1 pixels pass through
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, (mW-w)/2, (mH-h)/2, w, h);
+      ctx.drawImage(img, ox + (caW-w)/2, oy + (caH-h)/2, w, h);
       $("empty").style.display = "none";
     } else {
       $("empty").style.display = "";
     }
-    if(showGrid) drawGrid(mW, mH, gw, gh);    // the grid sits on top of the mat and the photo
+    if(showGrid) drawGrid(ox, oy, caW, caH, gw, gh, gL, gT, font);   // grid + coordinate labels, on top of the photo
   }
   render();                                   // draw the mat immediately, before any photo is opened
   window.addEventListener("resize", render);  // keep the mat fit to the board as the window changes
