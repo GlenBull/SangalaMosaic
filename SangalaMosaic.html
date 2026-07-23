@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.15 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.16 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -76,6 +76,8 @@
   .ebtn:hover{background:linear-gradient(#fff,#dbe6f3)}
   .ebtn:disabled{opacity:.45;cursor:default;box-shadow:none}
   .ebtn.on{background:linear-gradient(#bfe3ff,#8fcaf5);border-color:#3f8fd0;color:#123}   /* pressed / active toggle */
+  .sw{width:26px;height:26px;border-radius:5px;border:2px solid #b9a67f;cursor:pointer;box-shadow:inset 0 1px 2px rgba(255,255,255,.35)}
+  .sw.off{opacity:.3;filter:grayscale(.5);border-style:dashed}   /* a colour you don't own */
   #status{font-size:.92rem;color:#5a4a34;min-height:2.2rem;line-height:1.4;margin-top:.5rem}
   #bar{height:12px;background:#e3d6bd;border-radius:6px;overflow:hidden;margin:.6rem 0;display:none}
   #barfill{height:100%;width:0;background:#1fa85a;transition:width .2s}
@@ -98,7 +100,7 @@
   <div class="logo"><b class="marker">Sangala Mosaic</b><small>Mosaic Design Tool</small></div>
   <div class="tools">
     <button class="tbtn" id="bOpen" title="Open a photo (.png, .jpg)"><span class="glyph">📂</span><small>Open</small></button>
-    <button class="tbtn" id="bView" disabled title="Coming soon — switch between the photo and the finished mosaic"><span class="glyph">👁️</span><small>View</small></button>
+    <button class="tbtn" id="bView" disabled title="Switch between the photo and the built mosaic"><span class="glyph">👁️</span><small>View</small></button>
     <button class="tbtn" id="bChart" disabled title="Coming soon — print the build chart and parts list"><span class="glyph">🖨️</span><small>Print chart</small></button>
     <button class="tbtn" id="bSettings" disabled title="Coming soon — image prep and grid detail"><span class="glyph">⚙️</span><small>Settings</small></button>
   </div>
@@ -127,7 +129,7 @@
   <!-- (4) CONTROL PANEL (the Fabricate-panel equivalent) -->
   <div class="panel" id="build">
     <h2 class="marker">Build</h2>
-    <button class="go" id="bBuild" disabled title="Coming soon — map the photo to your tiles">Build It!</button>
+    <button class="go" id="bBuild" disabled title="Map the framed image to your owned tile colors">Build It!</button>
     <div id="bar"><div id="barfill"></div></div>
     <div id="status">Open a photo to begin.</div>
 
@@ -158,13 +160,11 @@
     </div>
 
     <h2 class="marker sub">Palette — your tiles</h2>
-    <div class="hint">Mapping will use only the tile colors you own, and the parts list counts them.
-      <span class="soon">Coming soon.</span></div>
-    <button class="ebtn" id="bPalette" disabled title="Coming soon" style="width:100%;margin-top:.45rem">Edit palette…</button>
+    <div class="hint" style="margin-top:0">Click a color to toggle whether you own it. Only owned colors are used.</div>
+    <div id="swatches" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.45rem"></div>
 
     <h2 class="marker sub">Bill of materials</h2>
-    <div class="hint" id="bom">Tile counts per color appear here once the photo is mapped.
-      <span class="soon">Coming soon.</span></div>
+    <div class="hint" id="bom" style="margin-top:.3rem">Tile counts per color appear here after you build.</div>
   </div>
 </div>
 
@@ -194,6 +194,7 @@
   let sel    = null;    // {kind:"layer", obj} | {kind:"frame"} | null
   let drag   = null;    // active move / resize
   let showGrid = true;
+  let built = null, viewMode = "photo";   // the computed mosaic + which view is showing
 
   const gW = () => Math.max(1, Math.round(+$("gW").value)||32);
   const gH = () => Math.max(1, Math.round(+$("gH").value)||32);
@@ -261,11 +262,16 @@
   function render(){
     const {w,h}=fitCanvas();
     ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h);                       // the workspace page
-    layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });
-    ensureFrame(); drawFrame(frame);                                      // the grid frame, on top of the images
-    if(sel) drawHandles(sel.kind==="frame"?frame:sel.obj);               // selection handles
-    $("empty").style.display = layers.length ? "none" : "";
-    updateSelPanel();
+    ensureFrame();
+    if(viewMode==="mosaic" && built){
+      drawBuilt(); drawFrame(frame);                                      // the built tile mosaic + the grid over it
+    } else {
+      layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });
+      drawFrame(frame);                                                   // the grid frame, on top of the images
+      if(sel) drawHandles(sel.kind==="frame"?frame:sel.obj);             // selection handles
+    }
+    $("empty").style.display = (layers.length||built) ? "none" : "";
+    updateSelPanel(); updateButtons();
   }
 
   // ---- pointer: click to select, drag the body to move, drag a corner to resize (aspect locked) ----
@@ -283,6 +289,7 @@
     return null;
   }
   cv.addEventListener("mousedown", e=>{
+    if(viewMode==="mosaic"){ viewMode="photo"; render(); return; }   // first click leaves the result view, back to editing
     const p=pt(e), t=pick(p);
     if(!t){ if(sel){ sel=null; render(); } return; }
     sel=t.target; const b=sel.kind==="frame"?frame:sel.obj;
@@ -295,6 +302,7 @@
   });
   window.addEventListener("mousemove", e=>{
     if(!drag){ const p=pt(e), t=pick(p); cv.style.cursor = !t?"default":(t.act==="resize"?CURS[t.corner]:"move"); return; }
+    if(built) invalidate();                                          // editing the composite makes any built mosaic stale
     const p=pt(e), b=sel.kind==="frame"?frame:sel.obj;
     if(drag.mode==="move"){ b.x=p.x-drag.dx; b.y=p.y-drag.dy; }
     else{
@@ -321,7 +329,7 @@
     iw*=fit; ih*=fit;
     const c=visibleCenter();                                       // drop it where the artist is looking, never below the fold
     const L={img:im, draw:im, bgRemoved:false, x:Math.round(c.x-iw/2), y:Math.round(c.y-ih/2), w:iw, h:ih};
-    layers.push(L); sel={kind:"layer",obj:L}; render();
+    layers.push(L); sel={kind:"layer",obj:L}; invalidate(); render();
     $("status").textContent = "Added "+(name||"an image")+" ("+im.naturalWidth+" × "+im.naturalHeight+" px). Drag to move, a corner to resize. Open another image to build a composite, then drag the grid frame over the part you want as the mosaic.";
   }
   function loadFile(f){
@@ -338,8 +346,8 @@
     const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) loadFile(f); });
 
   // ---- grid controls ----
-  $("gW").addEventListener("input", ()=>{ physical(); reshapeFrame(); render(); });
-  $("gH").addEventListener("input", ()=>{ physical(); reshapeFrame(); render(); });
+  $("gW").addEventListener("input", ()=>{ physical(); reshapeFrame(); invalidate(); render(); });
+  $("gH").addEventListener("input", ()=>{ physical(); reshapeFrame(); invalidate(); render(); });
   $("bShowGrid").addEventListener("click", ()=>{ showGrid=!showGrid; $("bShowGrid").classList.toggle("on",showGrid); render(); });
 
   // ---- layers: reorder / remove the selected image (layers[] is back-to-front) ----
@@ -353,12 +361,12 @@
     $("lBack").disabled  = $("lLower").disabled = (i<=0);
     $("lBg").textContent = sel.obj.bgRemoved ? "Restore background" : "Remove background";
   }
-  function reorder(fn){ if(!sel||sel.kind!=="layer") return; const i=layers.indexOf(sel.obj); if(i<0) return; fn(i); render(); }
+  function reorder(fn){ if(!sel||sel.kind!=="layer") return; const i=layers.indexOf(sel.obj); if(i<0) return; fn(i); invalidate(); render(); }
   $("lFront").onclick = ()=>reorder(i=>{ layers.splice(i,1); layers.push(sel.obj); });
   $("lRaise").onclick = ()=>reorder(i=>{ if(i<layers.length-1){ const t=layers[i]; layers[i]=layers[i+1]; layers[i+1]=t; } });
   $("lLower").onclick = ()=>reorder(i=>{ if(i>0){ const t=layers[i]; layers[i]=layers[i-1]; layers[i-1]=t; } });
   $("lBack").onclick  = ()=>reorder(i=>{ layers.splice(i,1); layers.unshift(sel.obj); });
-  $("lDel").onclick   = ()=>{ if(sel&&sel.kind==="layer"){ layers=layers.filter(L=>L!==sel.obj); sel=null; render(); } };
+  $("lDel").onclick   = ()=>{ if(sel&&sel.kind==="layer"){ layers=layers.filter(L=>L!==sel.obj); sel=null; invalidate(); render(); } };
 
   // Make the plain background transparent: flood-fill from the four corners, clearing pixels close to the
   // corner color. Flooding from the EDGES (not a global threshold) keeps interior matches - the crane's
@@ -396,7 +404,7 @@
     if(!sel||sel.kind!=="layer") return; const L=sel.obj;
     if(L.bgRemoved){ L.draw=L.img; L.bgRemoved=false; }
     else { L.draw=removeBg(L.img); L.bgRemoved=true; }
-    render();
+    invalidate(); render();
   };
 
   // ---- keyboard: Delete removes the selected image ----
@@ -406,6 +414,114 @@
       layers=layers.filter(L=>L!==sel.obj); sel=null; render(); e.preventDefault();
     }
   });
+
+  // ---- palette + mapping (Build It!) ----
+  // A curated set of real LEGO solid tile colours (approximate RGB). "own" says the builder has it; the
+  // mapping uses only owned colours, so the mosaic and the parts list reflect what can actually be built.
+  const PALETTE = [
+    {name:"White",         rgb:[242,243,242]},
+    {name:"Black",         rgb:[27,42,52]},
+    {name:"Red",           rgb:[196,40,28]},
+    {name:"Dark Red",      rgb:[123,46,47]},
+    {name:"Orange",        rgb:[254,138,24]},
+    {name:"Yellow",        rgb:[245,205,48]},
+    {name:"Tan",           rgb:[215,197,154]},
+    {name:"Dark Tan",      rgb:[149,138,115]},
+    {name:"Nougat",        rgb:[204,142,104]},
+    {name:"Reddish Brown", rgb:[105,64,39]},
+    {name:"Dark Brown",    rgb:[55,33,21]},
+    {name:"Bright Green",  rgb:[75,159,74]},
+    {name:"Green",         rgb:[40,127,70]},
+    {name:"Dark Green",    rgb:[0,69,38]},
+    {name:"Sand Green",    rgb:[120,144,130]},
+    {name:"Lime",          rgb:[166,202,56]},
+    {name:"Blue",          rgb:[13,105,171]},
+    {name:"Dark Blue",     rgb:[32,50,90]},
+    {name:"Medium Blue",   rgb:[110,153,201]},
+    {name:"Dark Azure",    rgb:[7,139,201]},
+    {name:"Light Gray",    rgb:[160,165,169]},
+    {name:"Dark Gray",     rgb:[89,93,96]},
+    {name:"Purple",        rgb:[52,43,117]},
+    {name:"Magenta",       rgb:[156,0,107]},
+    {name:"Pink",          rgb:[232,145,192]}
+  ].map(p=>({name:p.name, rgb:p.rgb, own:true}));
+
+  function buildSwatches(){
+    const box=$("swatches"); box.innerHTML="";
+    PALETTE.forEach(p=>{
+      const s=document.createElement("div");
+      const lbl=()=>p.name+(p.own?" — owned (click to drop)":" — not owned (click to add)");
+      s.className="sw"+(p.own?"":" off"); s.title=lbl(); s.style.background="rgb("+p.rgb.join(",")+")";
+      s.onclick=()=>{ p.own=!p.own; s.className="sw"+(p.own?"":" off"); s.title=lbl(); invalidate(); render(); };
+      box.appendChild(s);
+    });
+  }
+
+  // redmean colour distance - cheap but decently perceptual
+  function dist2(a,b){ const rm=(a[0]+b[0])*0.5, dr=a[0]-b[0], dg=a[1]-b[1], db=a[2]-b[2];
+    return (2+rm/256)*dr*dr + 4*dg*dg + (2+(255-rm)/256)*db*db; }
+  function nearestOwned(rgb, owned){ let bi=owned[0], bd=1e18; for(const o of owned){ const d=dist2(rgb,o.rgb); if(d<bd){bd=d;bi=o;} } return bi; }
+
+  function build(){
+    if(!layers.length) return;
+    const gw=gW(), gh=gH();
+    const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb,own:p.own})).filter(o=>o.own);
+    if(!owned.length){ $("status").textContent="Turn on at least one tile color in the palette first."; return; }
+    // render the composite INSIDE the frame to an offscreen buffer (no grid/labels), a few samples per cell
+    const SUB=5, sw=gw*SUB, sh=gh*SUB;
+    const off=document.createElement("canvas"); off.width=sw; off.height=sh;
+    const o=off.getContext("2d"); o.imageSmoothingEnabled=true; o.imageSmoothingQuality="high";
+    o.fillStyle="#ffffff"; o.fillRect(0,0,sw,sh);                 // transparent areas read as white (a White tile)
+    o.save(); o.scale(sw/frame.w, sh/frame.h); o.translate(-frame.x,-frame.y);
+    layers.forEach(L=>o.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h));
+    o.restore();
+    const d=o.getImageData(0,0,sw,sh).data;
+    // each cell votes among its sub-samples' nearest owned colour (mode, not average - avoids muddy blends)
+    const idx=[], counts={};
+    for(let r=0;r<gh;r++){ idx[r]=[];
+      for(let c=0;c<gw;c++){
+        const v={};
+        for(let yy=0;yy<SUB;yy++) for(let xx=0;xx<SUB;xx++){
+          const p=(((r*SUB+yy)*sw)+(c*SUB+xx))*4;
+          const oi=nearestOwned([d[p],d[p+1],d[p+2]], owned).i;
+          v[oi]=(v[oi]||0)+1;
+        }
+        let bi=-1,bn=-1; for(const k in v){ if(v[k]>bn){bn=v[k];bi=+k;} }
+        idx[r][c]=bi; counts[bi]=(counts[bi]||0)+1;
+      }
+    }
+    built={gw,gh,idx,counts}; viewMode="mosaic";
+    renderBOM(); render();
+    $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+(gw*gh)+" tiles. Parts list below. Press View to compare with the photo.";
+  }
+
+  function drawBuilt(){
+    const f=frame, gw=built.gw, gh=built.gh, idx=built.idx;
+    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
+      const p=PALETTE[idx[r][c]]; if(!p) continue;
+      ctx.fillStyle="rgb("+p.rgb.join(",")+")";
+      const x0=Math.round(f.x+c*f.w/gw), y0=Math.round(f.y+r*f.h/gh), x1=Math.round(f.x+(c+1)*f.w/gw), y1=Math.round(f.y+(r+1)*f.h/gh);
+      ctx.fillRect(x0,y0,x1-x0,y1-y0);
+    }
+  }
+
+  function renderBOM(){
+    if(!built){ $("bom").innerHTML='Tile counts per color appear here after you build.'; return; }
+    const rows=Object.keys(built.counts).map(i=>({i:+i,n:built.counts[i]})).sort((a,b)=>b.n-a.n);
+    let h='<table style="border-collapse:collapse;width:100%;font-size:.85rem">';
+    rows.forEach(row=>{ const p=PALETTE[row.i];
+      h+='<tr><td style="padding:1px 3px"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.3);background:rgb('+p.rgb.join(',')+');vertical-align:middle"></span></td>'
+        +'<td style="padding:1px 5px">'+p.name+'</td><td style="padding:1px 3px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums">'+row.n+'</td></tr>'; });
+    h+='</table><div style="margin-top:.35rem;font-weight:700">Total: '+(built.gw*built.gh)+' tiles · '+rows.length+' color'+(rows.length!==1?'s':'')+'</div>';
+    $("bom").innerHTML=h;
+  }
+
+  function invalidate(){ if(built){ built=null; renderBOM(); } viewMode="photo"; $("bView").classList.remove("on"); }
+  function updateButtons(){ $("bBuild").disabled=(layers.length===0); $("bView").disabled=!built; }
+
+  $("bBuild").onclick = build;
+  $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; $("bView").classList.toggle("on",viewMode==="mosaic"); render(); };
+  buildSwatches();
 
   physical(); render();
   window.addEventListener("resize", render);                       // re-fit the canvas as the window changes

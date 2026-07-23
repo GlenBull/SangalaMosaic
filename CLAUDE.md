@@ -106,13 +106,22 @@ date convention as Sangala Studio; bump it on any shipped change.
     OUTSIDE the frame with a white halo). Changing Across/Down reshapes it. The mosaic will be
     whatever falls inside this frame. *Show grid* toggles the cells+labels; the frame border stays.
   - Rendered at device resolution (`dpr`) for crisp pixels. Canvas fills the board; objects hold
-    absolute coords.
-- Grid size inputs + physical-size readout are live. Everything else in the panel (Build It!,
-  palette, bill of materials) and the left tools (Photo/Frame/Paint/Pick) are still disabled
-  placeholders. The Photo/Frame left tools are now redundant with direct manipulation — decide
-  whether to repurpose or drop them.
+    absolute coords. Layers have a `draw` source separate from `img`, so **Remove background**
+    (a per-image toggle in the Selected panel; flood-fill from the corners + feather + decontaminate)
+    swaps a transparent version in without losing the original.
+- **Build It! is live** (the centerpiece). `PALETTE` is ~25 real LEGO solid tile colors, each with
+  an `own` flag; the swatch row in the panel toggles ownership (click). Build samples the composite
+  inside the frame to an offscreen buffer at gw×gh×SUB, votes each cell to the nearest OWNED colour
+  (redmean distance; mode-per-cell, not average, to avoid muddy blends), renders the tile mosaic in
+  the frame, and fills the **bill of materials** (counts per colour, sorted; total = gw·gh). The
+  menu **View** button toggles photo↔mosaic; any edit invalidates the built mosaic (`invalidate()`).
+- The workspace is **pinned to the viewport** (body flex column, 100vh, overflow hidden); the panel
+  scrolls internally if tall — no page scroll.
+- Still disabled placeholders: **Print chart** (would print the chart + BOM), **Settings** (image
+  prep), and the left tools (Photo/Frame/Paint/Pick — redundant with direct manipulation; decide
+  whether to repurpose or drop). No dither/contrast controls yet.
 - Test material in `images/`: `Crested Crane.png`, `African Buffalo (LEGO).jpg`, the crane/buffalo
   reference mosaics, `Samweli Wanda.png`.
-- **Next:** the mapping — sample the composite inside the frame to gw×gh, quantize to owned tile
-  colors (the palette/inventory centerpiece), and fill the bill of materials. That is what wires
-  up *Build It!*.
+- **Next candidates:** owned-tile *quantities* (cap a colour, overflow to next-nearest); Print chart
+  (numbered build chart + parts list); image prep (contrast/levels, dither toggle default off);
+  porting Studio's ML background removal (u2netp) for busy backgrounds.
