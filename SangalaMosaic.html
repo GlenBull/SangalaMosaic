@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.14 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.15 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -370,14 +370,24 @@
     const d=id.data, at=(px,py)=>(py*W+px)*4;
     const corners=[[0,0],[W-1,0],[0,H-1],[W-1,H-1]].map(([px,py])=>{const i=at(px,py); return [d[i],d[i+1],d[i+2]];});
     const bg=[0,1,2].map(k=>Math.round(corners.reduce((s,c)=>s+c[k],0)/4));
-    const tol2=52*52, seen=new Uint8Array(W*H), stack=[];
-    const push=(px,py)=>{ if(px<0||py<0||px>=W||py>=H) return; const p=py*W+px; if(!seen[p]){ seen[p]=1; stack.push(px,py); } };
-    corners.forEach((_,k)=>push([0,W-1,0,W-1][k],[0,0,H-1,H-1][k]));
+    const dist=i=>{const a=d[i]-bg[0],b=d[i+1]-bg[1],e=d[i+2]-bg[2]; return Math.sqrt(a*a+b*b+e*e);};
+    // Below tIn from the background colour: clear it. Above tOut: keep it (the subject). Between: a feathered
+    // edge - set a partial alpha AND strip the background tint out of the pixel (decontaminate), so thin dark
+    // features like the crane's legs get a soft dark edge instead of a pale white halo.
+    const tIn=44, tOut=105, seen=new Uint8Array(W*H), stack=[];
+    const push=(px,py)=>{ if(px<0||py<0||px>=W||py>=H) return; const p=py*W+px; if(seen[p]) return; seen[p]=1;
+      if(dist(p*4)<tOut) stack.push(px,py); };             // flood the background + the feather band; the subject stops it
+    [[0,0],[W-1,0],[0,H-1],[W-1,H-1]].forEach(([px,py])=>push(px,py));
     while(stack.length){
-      const py=stack.pop(), px=stack.pop(), i=at(px,py);
-      const dr=d[i]-bg[0],dg=d[i+1]-bg[1],db=d[i+2]-bg[2];
-      if(dr*dr+dg*dg+db*db>tol2) continue;                 // reached the subject edge - stop spreading
-      d[i+3]=0;                                             // clear this background pixel
+      const py=stack.pop(), px=stack.pop(), i=at(px,py), ds=dist(i);
+      const a = ds<=tIn ? 0 : (ds-tIn)/(tOut-tIn);          // 0 in the background, ramping to 1 at the subject edge
+      if(a<=0){ d[i+3]=0; }
+      else {                                                // recover the true colour: pixel = a*fg + (1-a)*bg  ->  fg
+        d[i]  =Math.max(0,Math.min(255,(d[i]  -(1-a)*bg[0])/a));
+        d[i+1]=Math.max(0,Math.min(255,(d[i+1]-(1-a)*bg[1])/a));
+        d[i+2]=Math.max(0,Math.min(255,(d[i+2]-(1-a)*bg[2])/a));
+        d[i+3]=Math.round(a*255);
+      }
       push(px+1,py); push(px-1,py); push(px,py+1); push(px,py-1);
     }
     x.putImageData(id,0,0); return c;
