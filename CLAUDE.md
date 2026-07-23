@@ -58,7 +58,9 @@ Studio; pulling them in is the overloading this split is meant to avoid.
   deliberately — there is no automatic link, and that is on purpose (no coupling to break).
 - The **buffalo icon** (inline base64) is shared as the About button, so the two apps read as one
   family. Keep it inline — the single-file, self-contained rule holds here too.
-- Subtitle under the brand is **provisional** ("Mosaic design tool") until Glen confirms wording.
+- Subtitle under the brand is **"Mosaic Design Tool"** — Title Case, every word capitalized
+  including "Tool" (Glen confirmed 2026-07-23). Sangala Studio's subtitle was changed to match:
+  "Digital Fabrication Tool", also Title Case.
 
 ## Borrowable code (copy, do not link)
 - **Photo import + background removal + move/resize** already exist in Sangala Studio as the
