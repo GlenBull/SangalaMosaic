@@ -129,11 +129,17 @@ date convention as Sangala Studio; bump it on any shipped change.
   changed composite) and moving any layer/frame invalidates too. Clicking the workspace, or View,
   leaves Compare. View/Compare active state shows on the menu button (`.tbtn.on .glyph`) and is
   centralized in `updateButtons()`.
+- **See-through overlay** (`bSeeThru`, `seeThrough`) makes the mosaic translucent so the **source photo
+  shows through the tiles** — for checking the mosaic against the photo or tracing it while painting.
+  In mosaic view it draws `drawFramedPhoto(frame)` (the framed photo, factored out of Compare) as the
+  backdrop, then `drawBuilt(frame, true)` (the `noPlate` arg skips the studded plate) at
+  `globalAlpha 0.55`, then the frame's cell lines/labels over the top. Toggling it on forces mosaic
+  view; it composes with Paint, so you can hand-edit while seeing the photo underneath.
 - **Baseplate render.** The built mosaic sits on a **studded LEGO baseplate**: `getPlate()` draws a
   cached (dpr-scaled) plate of round studs across the frame, and `drawBuilt()` draws each tile
   **raised** above it (bevel highlight/shade + a drop shadow + a thin seam inset), so tiles read as
   placed on the plate; empty cells show the bare plate. The plate color is chosen from `BASEPLATE` —
-  **seven colors LEGO actually offers as baseplates** (Green default, Gray, Blue, Sand/Tan, White,
+  **seven colors LEGO actually offers as baseplates** (White default, Green, Gray, Blue, Sand/Tan,
   Black, Red) via a single-select swatch row (`#baseplates`), so the preview stays realistic. A
   **Shown/Hidden toggle** (`#bShowPlate`, `showPlate`) in the Baseplate header hides the plate for a
   clean chart-style view (tiles on white); when the plate is showing, the internal cell lines are

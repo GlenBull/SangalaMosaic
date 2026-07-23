@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.23 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.24 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -104,6 +104,7 @@
     <button class="tbtn" id="bOpen" title="Open a photo (.png, .jpg)"><span class="glyph">📂</span><small>Open</small></button>
     <button class="tbtn" id="bView" disabled title="Switch between the photo and the built mosaic"><span class="glyph">👁️</span><small>View</small></button>
     <button class="tbtn" id="bCompare" disabled title="Show the photo beside the mosaic, side by side, to compare"><span class="glyph">🆚</span><small>Compare</small></button>
+    <button class="tbtn" id="bSeeThru" disabled title="See-through: make the mosaic tiles translucent so the photo shows through underneath"><span class="glyph">🌗</span><small>See-through</small></button>
     <button class="tbtn" id="bChart" disabled title="Coming soon — print the build chart and parts list"><span class="glyph">🖨️</span><small>Print chart</small></button>
     <button class="tbtn" id="bSettings" disabled title="Coming soon — image prep and grid detail"><span class="glyph">⚙️</span><small>Settings</small></button>
   </div>
@@ -213,6 +214,7 @@
   let drag   = null;    // active move / resize
   let showGrid = true;
   let showPlate = true;   // whether the studded baseplate shows behind the built tiles
+  let seeThrough = false; // translucent mosaic: the source photo shows through the tiles
   let built = null, viewMode = "photo";   // the computed mosaic + which view is showing
   let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick/Erase
   let undoStack = [], redoStack = [], curStroke = null;   // paint-edit history: each entry is one stroke's per-cell {before,after}
@@ -287,7 +289,13 @@
     if(viewMode==="compare" && built){
       drawCompare();                                                      // photo beside mosaic, side by side
     } else if(viewMode==="mosaic" && built){
-      drawBuilt(); drawFrame(frame, showPlate);                           // built mosaic; studs show the grid, so cell lines only when the plate is hidden
+      if(seeThrough){                                                     // translucent: photo behind, tiles see-through on top
+        drawFramedPhoto(frame);
+        ctx.save(); ctx.globalAlpha=0.55; drawBuilt(frame, true); ctx.restore();
+        drawFrame(frame, false);                                         // cell lines + labels help read the grid over the photo
+      } else {
+        drawBuilt(); drawFrame(frame, showPlate);                        // built mosaic; studs show the grid, so cell lines only when the plate is hidden
+      }
     } else {
       layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });
       drawFrame(frame);                                                   // the grid frame, on top of the images
@@ -491,15 +499,15 @@
 
   // Baseplate colours - limited to ones LEGO has actually sold as baseplates, so a design stays realistic.
   const BASEPLATE = [
+    {name:"White",      rgb:[242,243,242]},
     {name:"Green",      rgb:[0,146,71]},
     {name:"Gray",       rgb:[160,165,169]},
     {name:"Blue",       rgb:[0,85,191]},
     {name:"Sand (Tan)", rgb:[215,197,154]},
-    {name:"White",      rgb:[242,243,242]},
     {name:"Black",      rgb:[27,42,52]},
     {name:"Red",        rgb:[180,0,0]}
   ];
-  let baseIdx=0, plateCache={key:null};   // default Green; cached studded-plate image
+  let baseIdx=0, plateCache={key:null};   // default White; cached studded-plate image
 
   function buildSwatches(){
     const box=$("swatches"); box.innerHTML="";
@@ -675,9 +683,19 @@
     }
     plateCache={key,canvas:cvp}; return cvp;
   }
-  function drawBuilt(rect){
+  // Draw the framed source photo scaled to fill a rect (used by Compare and by the see-through overlay).
+  function drawFramedPhoto(rect){
+    ctx.save(); ctx.beginPath(); ctx.rect(rect.x,rect.y,rect.w,rect.h); ctx.clip();
+    ctx.fillStyle="#fff"; ctx.fillRect(rect.x,rect.y,rect.w,rect.h);
+    const s=rect.w/frame.w;
+    ctx.translate(rect.x,rect.y); ctx.scale(s,s); ctx.translate(-frame.x,-frame.y);
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+    layers.forEach(L=>ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h));
+    ctx.restore();
+  }
+  function drawBuilt(rect, noPlate){
     const f=rect||frame, gw=built.gw, gh=built.gh, idx=built.idx, cw=f.w/gw, ch=f.h/gh;
-    if(showPlate) ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
+    if(showPlate && !noPlate) ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
     const inset=Math.max(0.5, Math.min(cw,ch)*0.05);                                     // thin seam between tiles
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
       const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;
@@ -696,13 +714,7 @@
     const {w,h}=boardCss(), gap=26, labelH=24, availH=h-labelH-6, paneW=(w-gap)/2, ar=built.gw/built.gh;
     const paneRect=px=>{ let pw=paneW, ph=pw/ar; if(ph>availH){ ph=availH; pw=ph*ar; } return {x:px+(paneW-pw)/2, y:labelH+(availH-ph)/2, w:pw, h:ph}; };
     const left=paneRect(0), right=paneRect(paneW+gap);
-    ctx.save(); ctx.beginPath(); ctx.rect(left.x,left.y,left.w,left.h); ctx.clip();   // left: the framed photo, scaled to fill
-    ctx.fillStyle="#fff"; ctx.fillRect(left.x,left.y,left.w,left.h);
-    const s=left.w/frame.w;
-    ctx.translate(left.x,left.y); ctx.scale(s,s); ctx.translate(-frame.x,-frame.y);
-    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
-    layers.forEach(L=>ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h));
-    ctx.restore();
+    drawFramedPhoto(left);                                                             // left: the framed photo
     drawBuilt(right);                                                                  // right: the mosaic on its baseplate
     ctx.save();
     ctx.strokeStyle="rgba(35,35,50,0.55)"; ctx.lineWidth=1.5;
@@ -736,15 +748,18 @@
   function invalidate(){ if(built){ built=null; renderBOM(); clearHistory(); } viewMode="photo"; }
   function updateButtons(){
     $("bBuild").disabled=(layers.length===0);
-    $("bView").disabled=!built; $("bCompare").disabled=!built;
-    $("bView").classList.toggle("on", viewMode==="mosaic");
+    $("bView").disabled=!built; $("bCompare").disabled=!built; $("bSeeThru").disabled=!built;
+    $("bView").classList.toggle("on", viewMode==="mosaic" && !seeThrough);
     $("bCompare").classList.toggle("on", viewMode==="compare");
+    $("bSeeThru").classList.toggle("on", seeThrough && viewMode==="mosaic");
   }
 
   $("bBuild").onclick = build;
   $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; render(); };
   $("bCompare").onclick = ()=>{ if(!built) return; viewMode = viewMode==="compare"?"photo":"compare";
     $("status").textContent = viewMode==="compare" ? "Comparing: the photo (left) beside the mosaic (right). Click the workspace to go back to editing." : "Editing."; render(); };
+  $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough; if(seeThrough) viewMode="mosaic";
+    $("status").textContent = seeThrough ? "See-through: the photo shows through the translucent tiles. Toggle it off to see solid tiles." : "Solid tiles."; render(); };
   $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
   $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
   $("tErase").onclick=()=>setTool(activeTool==="erase"?"select":"erase");
