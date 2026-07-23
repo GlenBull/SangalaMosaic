@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.20 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.21 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -169,7 +169,8 @@
     <label class="fld" style="margin-top:.5rem">Contrast<input type="range" id="optContrast" min="-100" max="100" value="0" style="width:100%"></label>
     <label class="fld" style="margin-top:.15rem">Brightness<input type="range" id="optBright" min="-100" max="100" value="0" style="width:100%"></label>
 
-    <h2 class="marker sub">Baseplate</h2>
+    <h2 class="marker sub" style="display:flex;align-items:center;justify-content:space-between">Baseplate
+      <button class="ebtn on" id="bShowPlate" title="Show or hide the baseplate behind the tiles" style="font-size:.72rem;padding:.22rem .55rem;flex:none">Shown</button></h2>
     <div class="hint" style="margin-top:0">The plate the tiles sit on — LEGO's official baseplate colors.</div>
     <div id="baseplates" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.4rem"></div>
 
@@ -208,6 +209,7 @@
   let sel    = null;    // {kind:"layer", obj} | {kind:"frame"} | null
   let drag   = null;    // active move / resize
   let showGrid = true;
+  let showPlate = true;   // whether the studded baseplate shows behind the built tiles
   let built = null, viewMode = "photo";   // the computed mosaic + which view is showing
   let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick
 
@@ -279,7 +281,7 @@
     ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h);                       // the workspace page
     ensureFrame();
     if(viewMode==="mosaic" && built){
-      drawBuilt(); drawFrame(frame, true);                                // the built tile mosaic on its baseplate + labels
+      drawBuilt(); drawFrame(frame, showPlate);                           // built mosaic; studs show the grid, so cell lines only when the plate is hidden
     } else {
       layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });
       drawFrame(frame);                                                   // the grid frame, on top of the images
@@ -375,6 +377,12 @@
   $("gW").addEventListener("input", ()=>{ physical(); reshapeFrame(); invalidate(); render(); });
   $("gH").addEventListener("input", ()=>{ physical(); reshapeFrame(); invalidate(); render(); });
   $("bShowGrid").addEventListener("click", ()=>{ showGrid=!showGrid; $("bShowGrid").classList.toggle("on",showGrid); render(); });
+  $("bShowPlate").addEventListener("click", ()=>{
+    showPlate=!showPlate;
+    const b=$("bShowPlate"); b.classList.toggle("on",showPlate); b.textContent=showPlate?"Shown":"Hidden";
+    $("baseplates").style.opacity=showPlate?"1":".4";   // dim the color swatches when there's no plate to color
+    render();
+  });
 
   // ---- layers: reorder / remove the selected image (layers[] is back-to-front) ----
   function updateSelPanel(){
@@ -640,7 +648,7 @@
   }
   function drawBuilt(){
     const f=frame, gw=built.gw, gh=built.gh, idx=built.idx, cw=f.w/gw, ch=f.h/gh;
-    ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
+    if(showPlate) ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
     const inset=Math.max(0.5, Math.min(cw,ch)*0.05);                                     // thin seam between tiles
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
       const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;

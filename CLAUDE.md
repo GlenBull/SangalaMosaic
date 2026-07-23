@@ -125,8 +125,11 @@ date convention as Sangala Studio; bump it on any shipped change.
   **raised** above it (bevel highlight/shade + a drop shadow + a thin seam inset), so tiles read as
   placed on the plate; empty cells show the bare plate. The plate color is chosen from `BASEPLATE` —
   **seven colors LEGO actually offers as baseplates** (Green default, Gray, Blue, Sand/Tan, White,
-  Black, Red) via a single-select swatch row (`#baseplates`), so the preview stays realistic. Over
-  the mosaic the internal cell lines are suppressed (`drawFrame(..,true)`) since the studs show the grid.
+  Black, Red) via a single-select swatch row (`#baseplates`), so the preview stays realistic. A
+  **Shown/Hidden toggle** (`#bShowPlate`, `showPlate`) in the Baseplate header hides the plate for a
+  clean chart-style view (tiles on white); when the plate is showing, the internal cell lines are
+  suppressed (studs mark the grid) and when it is hidden the cell lines return, so empty cells stay
+  legible. Hiding the plate dims the color swatches (nothing to color).
 - The workspace is **pinned to the viewport** (body flex column, 100vh, overflow hidden); the panel
   scrolls internally if tall — no page scroll.
 - Still disabled placeholders: **Print chart** (would print the chart + BOM), **Settings** (image
