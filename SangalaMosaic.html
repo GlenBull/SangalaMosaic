@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.9 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.10 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -168,115 +168,163 @@
   const $ = id => document.getElementById(id);
   const cv = $("cv"), ctx = cv.getContext("2d");
   const TILE_MM = 8;           // LEGO 1x1 tile pitch on a baseplate
-  let img = null;
-
-  // --- grid size -> live physical-size readout (real; the mapping itself is not built yet) ---
-  function physical(){
-    const w = Math.max(1, +$("gW").value||0), h = Math.max(1, +$("gH").value||0);
-    const mmW = w*TILE_MM, mmH = h*TILE_MM;
-    const inW = (mmW/25.4).toFixed(1), inH = (mmH/25.4).toFixed(1);
-    $("physical").innerHTML = w + " × " + h + " tiles · " + mmW + " × " + mmH + " mm · &approx; " + inW + " × " + inH + " in";
-  }
-  $("gW").addEventListener("input", () => { physical(); render(); });   // reshape the mat to the grid too
-  $("gH").addEventListener("input", () => { physical(); render(); });
-  physical();
-
-  // --- the tile grid over the mat, with a header row of numbers (1..gw) across the top and a column of
-  //     letters (A..Z, then AA, AB, ... past Z) down the left, so any cell can be named - e.g. cell 2C is
-  //     column 2, row C. ---
+  // ---- model: a free workspace holding image layers + a movable/resizable grid frame ----
+  //   layers: the images (mountains behind, a buffalo in front - a composite). Each is drag-to-move,
+  //           corner-to-resize (aspect locked). frame: the mosaic region (the grid) - also move/resize.
+  //   The mosaic will be whatever falls inside the frame. Selecting an object shows Studio-style handles.
+  let layers = [];      // back-to-front: {img, x, y, w, h} in board CSS px
+  let frame  = null;    // the grid region: {x, y, w, h}
+  let sel    = null;    // {kind:"layer", obj} | {kind:"frame"} | null
+  let drag   = null;    // active move / resize
   let showGrid = true;
-  function rowLabel(n){                        // 0-indexed row -> A, B, ... Z, AA, AB, ... (spreadsheet style)
-    let s=""; n++;
-    while(n>0){ n--; s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26); }
-    return s;
+
+  const gW = () => Math.max(1, Math.round(+$("gW").value)||32);
+  const gH = () => Math.max(1, Math.round(+$("gH").value)||32);
+
+  // --- grid size -> live physical-size readout (real) ---
+  function physical(){
+    const w=gW(), h=gH(), mmW=w*TILE_MM, mmH=h*TILE_MM;
+    $("physical").innerHTML = w+" × "+h+" tiles · "+mmW+" × "+mmH+" mm · &approx; "+(mmW/25.4).toFixed(1)+" × "+(mmH/25.4).toFixed(1)+" in";
   }
-  function drawGrid(ox, oy, w, h, gw, gh, gL, gT, font){   // ox,oy,w,h = the cell area; gL,gT = gutter sizes
+  function rowLabel(n){ let s=""; n++; while(n>0){ n--; s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26); } return s; }
+  const boardCss = () => { const r=$("board").getBoundingClientRect(); return { w:Math.max(160,r.width-28), h:Math.max(160,r.height-28) }; };
+
+  function ensureFrame(){
+    if(frame) return;
+    const {w,h}=boardCss(), ar=gW()/gH(); let fw,fh; const mw=w*0.66, mh=h*0.66;
+    if(mw/mh>ar){ fh=mh; fw=fh*ar; } else { fw=mw; fh=fw/ar; }
+    frame={ x:Math.round((w-fw)/2), y:Math.round((h-fh)/2), w:fw, h:fh };
+  }
+  function reshapeFrame(){                                  // keep it centered, match the grid's aspect
+    if(!frame) return;
+    const cx=frame.x+frame.w/2, cy=frame.y+frame.h/2, ar=gW()/gH(), g=Math.sqrt(frame.w*frame.h);
+    frame.w=g*Math.sqrt(ar); frame.h=g/Math.sqrt(ar); frame.x=cx-frame.w/2; frame.y=cy-frame.h/2;
+  }
+
+  // ---- render ----
+  function fitCanvas(){
+    const {w,h}=boardCss(), dpr=window.devicePixelRatio||1;
+    cv.style.width=w+"px"; cv.style.height=h+"px";
+    cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {w,h};
+  }
+  function drawFrame(f){
+    const gw=gW(), gh=gH();
     ctx.save();
-    ctx.fillStyle = "#efe6d3";                             // light header strips behind the labels
-    if(gT>0) ctx.fillRect(0, 0, ox+w, gT);
-    if(gL>0) ctx.fillRect(0, 0, gL, oy+h);
-    ctx.lineWidth = 1; ctx.strokeStyle = "rgba(45,45,55,0.30)";
-    ctx.beginPath();
-    for(let i=1;i<gw;i++){ const x = Math.round(ox + i*w/gw)+0.5; ctx.moveTo(x, oy); ctx.lineTo(x, oy+h); }   // cell columns
-    for(let j=1;j<gh;j++){ const y = Math.round(oy + j*h/gh)+0.5; ctx.moveTo(ox, y); ctx.lineTo(ox+w, y); }   // cell rows
-    ctx.stroke();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(30,30,45,0.55)";   // a firmer outer border marks the mosaic edge
-    ctx.strokeRect(ox+0.75, oy+0.75, w-1.5, h-1.5);
-    if(font>0){                                            // coordinate labels
-      ctx.fillStyle = "#5a4a34"; ctx.font = "600 "+font+"px system-ui,-apple-system,sans-serif";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      for(let c=0;c<gw;c++) ctx.fillText(String(c+1), ox + (c+0.5)*w/gw, gT/2 + 0.5);   // numbers across the top
-      for(let r=0;r<gh;r++) ctx.fillText(rowLabel(r),  gL/2,             oy + (r+0.5)*h/gh);   // letters down the left
+    if(showGrid){                                          // cell lines
+      ctx.lineWidth=1; ctx.strokeStyle="rgba(45,45,55,0.32)"; ctx.beginPath();
+      for(let i=1;i<gw;i++){ const x=Math.round(f.x+i*f.w/gw)+0.5; ctx.moveTo(x,f.y); ctx.lineTo(x,f.y+f.h); }
+      for(let j=1;j<gh;j++){ const y=Math.round(f.y+j*f.h/gh)+0.5; ctx.moveTo(f.x,y); ctx.lineTo(f.x+f.w,y); }
+      ctx.stroke();
+    }
+    ctx.lineWidth=1.5; ctx.strokeStyle="rgba(25,25,40,0.75)"; ctx.strokeRect(f.x+0.5,f.y+0.5,f.w-1,f.h-1);
+    if(showGrid){                                          // coordinate labels JUST OUTSIDE the frame, white-haloed
+      const cw=f.w/gw, ch=f.h/gh, font=Math.max(7, Math.min(13, Math.min(cw,ch)*0.62));
+      ctx.font="600 "+font+"px system-ui,-apple-system,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.lineJoin="round"; ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,0.92)"; ctx.fillStyle="#3a2f1e";
+      const ny=f.y-font*0.9;
+      for(let c=0;c<gw;c++){ const x=f.x+(c+0.5)*cw, t=String(c+1); ctx.strokeText(t,x,ny); ctx.fillText(t,x,ny); }
+      const lx=f.x-font*1.0;
+      for(let r=0;r<gh;r++){ const y=f.y+(r+0.5)*ch, t=rowLabel(r); ctx.strokeText(t,lx,y); ctx.fillText(t,lx,y); }
     }
     ctx.restore();
   }
-
-  // --- the mat / work area: a FIXED work surface sized to the board (never to the photo), rendered at the
-  //     device's true resolution so it is crisp. The photo is placed at up to 70% of the mat and is NEVER
-  //     enlarged past its own pixels (1:1 cap) - upscaling a small photo is what makes it look soft. ---
-  function render(){
-    const gw = Math.max(1, Math.round(+$("gW").value)||32);
-    const gh = Math.max(1, Math.round(+$("gH").value)||32);
-    const aspect = gw/gh;                                        // mat shape follows the grid (32 x 32 -> square)
-    const br = $("board").getBoundingClientRect();
-    const availW = Math.max(120, br.width  - 28 - 40);           // board padding (14 x 2) + cork breathing room
-    const availH = Math.max(120, br.height - 28 - 24);
-    let mW, mH;                                                  // mat size in CSS px, fit inside the board
-    if(availW/availH > aspect){ mH = availH; mW = mH*aspect; } else { mW = availW; mH = mW/aspect; }
-    const dpr = window.devicePixelRatio || 1;
-    cv.style.width = mW+"px"; cv.style.height = mH+"px";
-    cv.width = Math.round(mW*dpr); cv.height = Math.round(mH*dpr);   // backing store at device resolution -> no blur
-    ctx.setTransform(dpr,0,0,dpr,0,0);                           // draw in CSS px; dpr handles the crispness
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,mW,mH);
-    // reserve a header gutter for the coordinate labels while the grid is shown
-    const approxCell = Math.min(mW/gw, mH/gh);
-    const font = Math.max(7, Math.min(12, approxCell*0.55));
-    const gT = showGrid ? Math.round(font*1.9) : 0;             // top gutter (column numbers)
-    const gL = showGrid ? Math.round(font*2.4) : 0;             // left gutter (row letters, room for 2 chars)
-    const ox = gL, oy = gT, caW = mW-gL, caH = mH-gT;           // the cell area the photo + grid occupy
-    if(img){
-      const s = Math.min(1, caW*0.7/img.naturalWidth, caH*0.7/img.naturalHeight);   // up to 70%, never enlarge past 1:1
-      const w = img.naturalWidth*s, h = img.naturalHeight*s;
-      ctx.imageSmoothingEnabled = s < 1;                        // smooth only when shrinking; at 1:1 pixels pass through
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, ox + (caW-w)/2, oy + (caH-h)/2, w, h);
-      $("empty").style.display = "none";
-    } else {
-      $("empty").style.display = "";
-    }
-    if(showGrid) drawGrid(ox, oy, caW, caH, gw, gh, gL, gT, font);   // grid + coordinate labels, on top of the photo
+  const cornersOf = b => [[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]];
+  function drawHandles(b){
+    ctx.save();
+    ctx.setLineDash([5,3]); ctx.lineWidth=1.5; ctx.strokeStyle="#1a5fb4"; ctx.strokeRect(b.x,b.y,b.w,b.h);
+    ctx.setLineDash([]); ctx.fillStyle="#fff";
+    cornersOf(b).forEach(c=>{ ctx.beginPath(); ctx.rect(c[0]-5,c[1]-5,10,10); ctx.fill(); ctx.stroke(); });
+    ctx.restore();
   }
-  render();                                   // draw the mat immediately, before any photo is opened
-  window.addEventListener("resize", render);  // keep the mat fit to the board as the window changes
-  window.addEventListener("load", render);    // re-fit once fonts/layout settle
+  function render(){
+    const {w,h}=fitCanvas();
+    ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h);                       // the workspace page
+    layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.img,L.x,L.y,L.w,L.h); });
+    ensureFrame(); drawFrame(frame);                                      // the grid frame, on top of the images
+    if(sel) drawHandles(sel.kind==="frame"?frame:sel.obj);               // selection handles
+    $("empty").style.display = layers.length ? "none" : "";
+  }
 
-  $("bShowGrid").addEventListener("click", () => {     // toggle the grid on/off
-    showGrid = !showGrid;
-    $("bShowGrid").classList.toggle("on", showGrid);
+  // ---- pointer: click to select, drag the body to move, drag a corner to resize (aspect locked) ----
+  const pt = e => { const r=cv.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; };
+  const cornerAt = (b,p) => { const H=9, cs=cornersOf(b); for(let i=0;i<4;i++) if(Math.abs(p.x-cs[i][0])<=H&&Math.abs(p.y-cs[i][1])<=H) return i; return -1; };
+  const inside = (b,p) => p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
+  function onBorder(f,p){ const T=6, x0=f.x,x1=f.x+f.w,y0=f.y,y1=f.y+f.h;
+    const nV=(Math.abs(p.x-x0)<=T||Math.abs(p.x-x1)<=T)&&p.y>=y0-T&&p.y<=y1+T;
+    const nH=(Math.abs(p.y-y0)<=T||Math.abs(p.y-y1)<=T)&&p.x>=x0-T&&p.x<=x1+T; return nV||nH; }
+  const CURS=["nwse-resize","nesw-resize","nwse-resize","nesw-resize"];
+  function pick(p){
+    if(sel){ const b=sel.kind==="frame"?frame:sel.obj; const c=cornerAt(b,p); if(c>=0) return {act:"resize",target:sel,corner:c}; }
+    if(frame){ const c=cornerAt(frame,p); if(c>=0) return {act:"resize",target:{kind:"frame"},corner:c}; if(onBorder(frame,p)) return {act:"move",target:{kind:"frame"}}; }
+    for(let i=layers.length-1;i>=0;i--) if(inside(layers[i],p)) return {act:"move",target:{kind:"layer",obj:layers[i]}};
+    return null;
+  }
+  cv.addEventListener("mousedown", e=>{
+    const p=pt(e), t=pick(p);
+    if(!t){ if(sel){ sel=null; render(); } return; }
+    sel=t.target; const b=sel.kind==="frame"?frame:sel.obj;
+    if(t.act==="resize"){
+      const anc=cornersOf(b)[(t.corner+2)%4];
+      const ar = sel.kind==="frame" ? gW()/gH() : sel.obj.img.naturalWidth/sel.obj.img.naturalHeight;
+      drag={mode:"resize", ax:anc[0], ay:anc[1], ar};
+    } else drag={mode:"move", dx:p.x-b.x, dy:p.y-b.y};
+    render(); e.preventDefault();
+  });
+  window.addEventListener("mousemove", e=>{
+    if(!drag){ const p=pt(e), t=pick(p); cv.style.cursor = !t?"default":(t.act==="resize"?CURS[t.corner]:"move"); return; }
+    const p=pt(e), b=sel.kind==="frame"?frame:sel.obj;
+    if(drag.mode==="move"){ b.x=p.x-drag.dx; b.y=p.y-drag.dy; }
+    else{
+      let dx=p.x-drag.ax, dy=p.y-drag.ay, nw=Math.abs(dx), nh=Math.abs(dy);
+      if(nw/nh>drag.ar) nh=nw/drag.ar; else nw=nh*drag.ar;          // lock aspect
+      if(nw<24){ nw=24; nh=nw/drag.ar; }                            // floor; never mirror through the anchor
+      b.w=nw; b.h=nh; b.x = dx<0?drag.ax-nw:drag.ax; b.y = dy<0?drag.ay-nh:drag.ay;
+    }
     render();
   });
+  window.addEventListener("mouseup", ()=>{ drag=null; });
+
+  // ---- add images (Open / drop). Each Open ADDS a layer, so a composite can be built up ----
+  function addImage(im, name){
+    const {w,h}=boardCss();
+    let iw=im.naturalWidth, ih=im.naturalHeight;
+    const fit=Math.min(1, w*0.8/iw, h*0.8/ih);                     // fit within the workspace, but NEVER upscale (crisp)
+    iw*=fit; ih*=fit;
+    const L={img:im, x:Math.round((w-iw)/2), y:Math.round((h-ih)/2), w:iw, h:ih};
+    layers.push(L); sel={kind:"layer",obj:L}; render();
+    $("status").textContent = "Added "+(name||"an image")+" ("+im.naturalWidth+" × "+im.naturalHeight+" px). Drag to move, a corner to resize. Open another image to build a composite, then drag the grid frame over the part you want as the mosaic.";
+  }
   function loadFile(f){
-    if(!f || !/^image\//.test(f.type)) return;
-    const url = URL.createObjectURL(f);
-    const im = new Image();
-    im.onload = () => {
-      img = im; render();
-      $("status").textContent = "Loaded " + f.name + " (" + im.naturalWidth + " × " + im.naturalHeight + " px). Mapping tools are coming soon.";
-      URL.revokeObjectURL(url);
-    };
-    im.onerror = () => URL.revokeObjectURL(url);
-    im.src = url;
+    if(!f||!/^image\//.test(f.type)) return;
+    const url=URL.createObjectURL(f), im=new Image();
+    im.onload=()=>{ addImage(im, f.name); URL.revokeObjectURL(url); };
+    im.onerror=()=>URL.revokeObjectURL(url); im.src=url;
   }
   $("bOpen").onclick = () => $("file").click();
   $("file").onchange = e => { if(e.target.files[0]) loadFile(e.target.files[0]); e.target.value=""; };
+  document.addEventListener("dragover", e=>{ e.preventDefault(); document.body.classList.add("dropping"); });
+  document.addEventListener("dragleave", e=>{ if(e.target===document.documentElement) document.body.classList.remove("dropping"); });
+  document.addEventListener("drop", e=>{ e.preventDefault(); document.body.classList.remove("dropping");
+    const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) loadFile(f); });
 
-  document.addEventListener("dragover", e => { e.preventDefault(); document.body.classList.add("dropping"); });
-  document.addEventListener("dragleave", e => { if(e.target === document.documentElement) document.body.classList.remove("dropping"); });
-  document.addEventListener("drop", e => {
-    e.preventDefault(); document.body.classList.remove("dropping");
-    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if(f) loadFile(f);
+  // ---- grid controls ----
+  $("gW").addEventListener("input", ()=>{ physical(); reshapeFrame(); render(); });
+  $("gH").addEventListener("input", ()=>{ physical(); reshapeFrame(); render(); });
+  $("bShowGrid").addEventListener("click", ()=>{ showGrid=!showGrid; $("bShowGrid").classList.toggle("on",showGrid); render(); });
+
+  // ---- keyboard: Delete removes the selected image ----
+  document.addEventListener("keydown", e=>{
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+    if(!typing && (e.key==="Delete"||e.key==="Backspace") && sel && sel.kind==="layer"){
+      layers=layers.filter(L=>L!==sel.obj); sel=null; render(); e.preventDefault();
+    }
   });
+
+  physical(); render();
+  window.addEventListener("resize", render);                       // re-fit the canvas as the window changes
+  window.addEventListener("load", render);
 
   // --- About ---
   $("bAbout").onclick = () => $("about").classList.add("show");

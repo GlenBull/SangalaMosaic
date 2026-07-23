@@ -88,12 +88,31 @@ date convention as Sangala Studio; bump it on any shipped change.
   folder, and pushing commits to this repo's GitHub once a remote exists. No need to ask.
 - **Always ask first:** anything outside this repo, system/account settings, creating the GitHub
   remote, and any history-losing git (force-push, hard reset dropping commits, branch deletion).
-- No GitHub remote yet — local commits only until Glen okays creating one.
+- Remote is live: **https://github.com/GlenBull/SangalaMosaic** (public, branch `main`). Standing
+  approval covers pushing to it.
 
-## Current state (as of setup, 2026-07-23)
-- Folder created, `git init`, this guide, and the **shared shell** (`SangalaMosaic.html`): the
-  Sangala chrome (denim header, brand, About with the buffalo icon, three-column stage) plus a
-  first real capability — open or drag-drop a photo and it draws on the board. No mosaic logic yet.
-- Test material copied into `images/`: `Crested Crane.png` (source photo), `Crested Crane
-  (Mosaic).png` and `African Buffalo (LEGO).jpg` (reference mosaics to match), `Samweli Wanda.png`.
-- Next step is the grid layer over the photo, then palette-constrained mapping.
+## Current state (as of 2026-07-23)
+- **Four-region layout** matching Studio: denim menu bar, left tool rail, cork workspace, right
+  "Build" control panel. Subtitle "Mosaic Design Tool" (Title Case).
+- **The workspace is a free compositor** (`SangalaMosaic.html`, one `<script>` IIFE):
+  - `layers[]` — image layers. Each **Open/drop ADDS** an image (mountains behind, a buffalo in
+    front = a composite), placed at native size, downscaled only to fit (never upscaled, so it
+    stays crisp). Click to select; drag the body to move; drag a corner handle to resize
+    (aspect-locked, opposite corner anchored) — Studio's refImg interaction. Delete key removes
+    the selected image.
+  - `frame` — the **grid region**, a movable/resizable frame (drag its border to move, corner to
+    resize; aspect locked to the grid, so cells stay square). It carries the cell lines and the
+    coordinate labels (numbers 1..gw across the top, letters A..Z, AA.. down the left, drawn just
+    OUTSIDE the frame with a white halo). Changing Across/Down reshapes it. The mosaic will be
+    whatever falls inside this frame. *Show grid* toggles the cells+labels; the frame border stays.
+  - Rendered at device resolution (`dpr`) for crisp pixels. Canvas fills the board; objects hold
+    absolute coords.
+- Grid size inputs + physical-size readout are live. Everything else in the panel (Build It!,
+  palette, bill of materials) and the left tools (Photo/Frame/Paint/Pick) are still disabled
+  placeholders. The Photo/Frame left tools are now redundant with direct manipulation — decide
+  whether to repurpose or drop them.
+- Test material in `images/`: `Crested Crane.png`, `African Buffalo (LEGO).jpg`, the crane/buffalo
+  reference mosaics, `Samweli Wanda.png`.
+- **Next:** the mapping — sample the composite inside the frame to gw×gh, quantize to owned tile
+  colors (the palette/inventory centerpiece), and fill the bill of materials. That is what wires
+  up *Build It!*.
