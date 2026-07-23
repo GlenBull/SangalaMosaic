@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.4 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.5 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -176,23 +176,26 @@
     const inW = (mmW/25.4).toFixed(1), inH = (mmH/25.4).toFixed(1);
     $("physical").innerHTML = w + " × " + h + " tiles · " + mmW + " × " + mmH + " mm · &approx; " + inW + " × " + inH + " in";
   }
-  $("gW").addEventListener("input", physical);
-  $("gH").addEventListener("input", physical);
+  $("gW").addEventListener("input", () => { physical(); render(); });   // reshape the mat to the grid too
+  $("gH").addEventListener("input", () => { physical(); render(); });
   physical();
 
-  // --- the mat / work area: a square work surface shown from the start; the photo sits on it once loaded ---
-  const MAT = 900;   // logical px of the empty square mat (a 32 x 32 baseplate is square); CSS scales it to the board
+  // --- the mat / work area: a FIXED work surface (the mosaic area). Its size follows the grid, never the
+  //     photo. A photo is PLACED onto the mat and never resizes it - same as Sangala Studio, where the mat
+  //     stays put no matter what you drop on it. ---
+  const MAT_LONG = 900;   // logical px of the mat's long side; CSS then scales the whole mat to fit the board
   function render(){
+    const gw = Math.max(1, Math.round(+$("gW").value)||32);
+    const gh = Math.max(1, Math.round(+$("gH").value)||32);
+    cv.width  = gw>=gh ? MAT_LONG : Math.round(MAT_LONG*gw/gh);   // mat aspect = grid aspect (32 x 32 -> square)
+    cv.height = gh>=gw ? MAT_LONG : Math.round(MAT_LONG*gh/gw);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,cv.width,cv.height);
     if(img){
-      const MAX = 1400, s = Math.min(1, MAX/img.naturalWidth, MAX/img.naturalHeight);
-      cv.width = Math.round(img.naturalWidth*s);
-      cv.height = Math.round(img.naturalHeight*s);
-      ctx.clearRect(0,0,cv.width,cv.height);
-      ctx.drawImage(img, 0, 0, cv.width, cv.height);
+      const s = Math.min(cv.width/img.naturalWidth, cv.height/img.naturalHeight);   // contain: the whole photo, centered
+      const w = img.naturalWidth*s, h = img.naturalHeight*s;
+      ctx.drawImage(img, (cv.width-w)/2, (cv.height-h)/2, w, h);
       $("empty").style.display = "none";
     } else {
-      cv.width = MAT; cv.height = MAT;                 // blank mat: its white fill + shadow read as the work surface
-      ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,MAT,MAT);
       $("empty").style.display = "";
     }
   }
