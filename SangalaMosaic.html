@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.19 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.20 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -169,6 +169,10 @@
     <label class="fld" style="margin-top:.5rem">Contrast<input type="range" id="optContrast" min="-100" max="100" value="0" style="width:100%"></label>
     <label class="fld" style="margin-top:.15rem">Brightness<input type="range" id="optBright" min="-100" max="100" value="0" style="width:100%"></label>
 
+    <h2 class="marker sub">Baseplate</h2>
+    <div class="hint" style="margin-top:0">The plate the tiles sit on — LEGO's official baseplate colors.</div>
+    <div id="baseplates" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.4rem"></div>
+
     <h2 class="marker sub">Palette — your tiles</h2>
     <div class="hint" style="margin-top:0">Click a color to toggle whether you own it. Only owned colors are used.</div>
     <div id="swatches" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.45rem"></div>
@@ -238,10 +242,10 @@
     ctx.setTransform(dpr,0,0,dpr,0,0);
     return {w,h};
   }
-  function drawFrame(f){
+  function drawFrame(f, hideCells){
     const gw=gW(), gh=gH();
     ctx.save();
-    if(showGrid){                                          // cell lines
+    if(showGrid && !hideCells){                            // cell lines (hidden over the built mosaic - studs show the grid)
       ctx.lineWidth=1; ctx.strokeStyle="rgba(45,45,55,0.32)"; ctx.beginPath();
       for(let i=1;i<gw;i++){ const x=Math.round(f.x+i*f.w/gw)+0.5; ctx.moveTo(x,f.y); ctx.lineTo(x,f.y+f.h); }
       for(let j=1;j<gh;j++){ const y=Math.round(f.y+j*f.h/gh)+0.5; ctx.moveTo(f.x,y); ctx.lineTo(f.x+f.w,y); }
@@ -275,7 +279,7 @@
     ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h);                       // the workspace page
     ensureFrame();
     if(viewMode==="mosaic" && built){
-      drawBuilt(); drawFrame(frame);                                      // the built tile mosaic + the grid over it
+      drawBuilt(); drawFrame(frame, true);                                // the built tile mosaic on its baseplate + labels
     } else {
       layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });
       drawFrame(frame);                                                   // the grid frame, on top of the images
@@ -468,6 +472,18 @@
     {name:"Pink",          rgb:[232,145,192]}
   ].map(p=>({name:p.name, rgb:p.rgb, own:true}));
 
+  // Baseplate colours - limited to ones LEGO has actually sold as baseplates, so a design stays realistic.
+  const BASEPLATE = [
+    {name:"Green",      rgb:[0,146,71]},
+    {name:"Gray",       rgb:[160,165,169]},
+    {name:"Blue",       rgb:[0,85,191]},
+    {name:"Sand (Tan)", rgb:[215,197,154]},
+    {name:"White",      rgb:[242,243,242]},
+    {name:"Black",      rgb:[27,42,52]},
+    {name:"Red",        rgb:[180,0,0]}
+  ];
+  let baseIdx=0, plateCache={key:null};   // default Green; cached studded-plate image
+
   function buildSwatches(){
     const box=$("swatches"); box.innerHTML="";
     PALETTE.forEach((p,i)=>{
@@ -604,14 +620,46 @@
     $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+Object.keys(counts).length+" colors. Press View to compare with the photo.";
   }
 
-  function drawBuilt(){
-    const f=frame, gw=built.gw, gh=built.gh, idx=built.idx;
+  // The studded baseplate, drawn once per (grid, colour, size) and reused - a stud on every cell (tiles cover
+  // the ones they sit on). Rendered at device resolution so the studs are crisp.
+  function getPlate(gw,gh,rgb,W,H){
+    const key=gw+"x"+gh+"|"+rgb.join(",")+"|"+Math.round(W)+"x"+Math.round(H);
+    if(plateCache.key===key) return plateCache.canvas;
+    const dpr=window.devicePixelRatio||1, cvp=document.createElement("canvas");
+    cvp.width=Math.max(1,Math.round(W*dpr)); cvp.height=Math.max(1,Math.round(H*dpr));
+    const g=cvp.getContext("2d"); g.scale(dpr,dpr);
+    const cw=W/gw, ch=H/gh, sr=Math.min(cw,ch)*0.30, base="rgb("+rgb.join(",")+")";
+    g.fillStyle=base; g.fillRect(0,0,W,H);
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
-      const p=PALETTE[idx[r][c]]; if(!p) continue;
-      ctx.fillStyle="rgb("+p.rgb.join(",")+")";
-      const x0=Math.round(f.x+c*f.w/gw), y0=Math.round(f.y+r*f.h/gh), x1=Math.round(f.x+(c+1)*f.w/gw), y1=Math.round(f.y+(r+1)*f.h/gh);
-      ctx.fillRect(x0,y0,x1-x0,y1-y0);
+      const cx=(c+0.5)*cw, cy=(r+0.5)*ch;
+      g.fillStyle="rgba(0,0,0,0.16)"; g.beginPath(); g.arc(cx,cy+sr*0.30,sr,0,6.2832); g.fill();   // stud shadow
+      g.fillStyle=base;                g.beginPath(); g.arc(cx,cy,sr,0,6.2832); g.fill();            // stud top
+      g.fillStyle="rgba(255,255,255,0.18)"; g.beginPath(); g.arc(cx-sr*0.28,cy-sr*0.28,sr*0.66,0,6.2832); g.fill();   // highlight
     }
+    plateCache={key,canvas:cvp}; return cvp;
+  }
+  function drawBuilt(){
+    const f=frame, gw=built.gw, gh=built.gh, idx=built.idx, cw=f.w/gw, ch=f.h/gh;
+    ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
+    const inset=Math.max(0.5, Math.min(cw,ch)*0.05);                                     // thin seam between tiles
+    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
+      const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;
+      const x=f.x+c*cw+inset, y=f.y+r*ch+inset, w=cw-2*inset, h=ch-2*inset;
+      ctx.fillStyle="rgba(0,0,0,0.22)"; ctx.fillRect(x+1.2,y+1.6,w,h);                   // drop shadow -> raised
+      ctx.fillStyle="rgb("+col.join(",")+")"; ctx.fillRect(x,y,w,h);                     // the tile
+      ctx.strokeStyle="rgba(255,255,255,0.30)"; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x+0.5,y+h-0.5); ctx.lineTo(x+0.5,y+0.5); ctx.lineTo(x+w-0.5,y+0.5); ctx.stroke();   // top/left highlight
+      ctx.strokeStyle="rgba(0,0,0,0.25)";
+      ctx.beginPath(); ctx.moveTo(x+w-0.5,y+0.5); ctx.lineTo(x+w-0.5,y+h-0.5); ctx.lineTo(x+0.5,y+h-0.5); ctx.stroke(); // bottom/right shade
+    }
+  }
+  function buildBaseplates(){
+    const box=$("baseplates"); box.innerHTML="";
+    BASEPLATE.forEach((p,i)=>{ const s=document.createElement("div");
+      s.className="sw"+(i===baseIdx?" cur":""); s.style.background="rgb("+p.rgb.join(",")+")"; s.title=p.name+" baseplate";
+      s.onclick=()=>{ baseIdx=i; plateCache={key:null}; buildBaseplates(); render(); };
+      box.appendChild(s);
+    });
   }
 
   function renderBOM(){
@@ -639,7 +687,7 @@
     $("colorsVal").textContent=$("optColors").value;
     if(built||viewMode==="mosaic") build();   // live re-map once a mosaic exists
   }));
-  buildSwatches();
+  buildSwatches(); buildBaseplates();
 
   physical(); render();
   window.addEventListener("resize", render);                       // re-fit the canvas as the window changes

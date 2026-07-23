@@ -120,6 +120,13 @@ date convention as Sangala Studio; bump it on any shipped change.
   `removeBg`-isolated copy per layer so the backdrop is empty and thin parts survive), **Colors**,
   **Clean up**, **Contrast**, **Brightness**; changing any re-maps live once a mosaic exists. The
   menu **View** button toggles photo↔mosaic; any edit to the composite invalidates it (`invalidate()`).
+- **Baseplate render.** The built mosaic sits on a **studded LEGO baseplate**: `getPlate()` draws a
+  cached (dpr-scaled) plate of round studs across the frame, and `drawBuilt()` draws each tile
+  **raised** above it (bevel highlight/shade + a drop shadow + a thin seam inset), so tiles read as
+  placed on the plate; empty cells show the bare plate. The plate color is chosen from `BASEPLATE` —
+  **seven colors LEGO actually offers as baseplates** (Green default, Gray, Blue, Sand/Tan, White,
+  Black, Red) via a single-select swatch row (`#baseplates`), so the preview stays realistic. Over
+  the mosaic the internal cell lines are suppressed (`drawFrame(..,true)`) since the studs show the grid.
 - The workspace is **pinned to the viewport** (body flex column, 100vh, overflow hidden); the panel
   scrolls internally if tall — no page scroll.
 - Still disabled placeholders: **Print chart** (would print the chart + BOM), **Settings** (image
@@ -134,8 +141,7 @@ date convention as Sangala Studio; bump it on any shipped change.
   Paint. Cell writes are incremental into `built.counts` (BOM updates on mouseup). `activeTool` =
   select|paint|pick. Rebuilding or editing the composite discards hand edits (expected).
 - The auto-conversion gets ~80% toward the hand-built "gold standard"; Paint is the last-mile finish.
-- **Next candidates:** **background fill** (fill empty cells with a chosen tile — green baseplate +
-  a grass row); owned-tile *quantities* (cap a colour, overflow to next-nearest); Print chart
+- **Next candidates:** owned-tile *quantities* (cap a colour, overflow to next-nearest); Print chart
   (numbered chart + parts list); porting Studio's ML background removal (u2netp) for busy
   backgrounds; optional dither. The left Photo/Frame tools are still redundant with direct
   manipulation — drop or repurpose.
