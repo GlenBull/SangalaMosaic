@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.16 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.17 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -158,6 +158,12 @@
       <button class="ebtn on" id="bShowGrid" title="Show or hide the tile grid on the mat">Show grid</button>
       <button class="ebtn" id="bFitGrid"  disabled title="Coming soon">Fit to photo</button>
     </div>
+
+    <h2 class="marker sub">Options</h2>
+    <label style="display:flex;align-items:flex-start;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.15rem">
+      <input type="checkbox" id="optIgnoreBg" checked style="width:auto;margin:.15rem 0 0"> Ignore the background — leave it as empty cells so thin parts (legs, neck) aren't lost</label>
+    <label class="fld" style="margin-top:.5rem">Contrast<input type="range" id="optContrast" min="-100" max="100" value="0" style="width:100%"></label>
+    <label class="fld" style="margin-top:.15rem">Brightness<input type="range" id="optBright" min="-100" max="100" value="0" style="width:100%"></label>
 
     <h2 class="marker sub">Palette — your tiles</h2>
     <div class="hint" style="margin-top:0">Click a color to toggle whether you own it. Only owned colors are used.</div>
@@ -462,37 +468,52 @@
     return (2+rm/256)*dr*dr + 4*dg*dg + (2+(255-rm)/256)*db*db; }
   function nearestOwned(rgb, owned){ let bi=owned[0], bd=1e18; for(const o of owned){ const d=dist2(rgb,o.rgb); if(d<bd){bd=d;bi=o;} } return bi; }
 
+  // With "Ignore background" on, sample a background-removed copy of each layer so the plain backdrop drops
+  // out - and its interior whites (the crane's belly) survive, because removeBg floods from the edges, not by
+  // colour. Cached per layer as _iso. A layer the artist already removed just uses its own transparent draw.
+  function sampleSrc(L, ignoreBg){
+    if(!ignoreBg) return L.draw||L.img;
+    if(L.bgRemoved) return L.draw;
+    if(!L._iso) L._iso=removeBg(L.img);
+    return L._iso;
+  }
   function build(){
     if(!layers.length) return;
     const gw=gW(), gh=gH();
-    const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb,own:p.own})).filter(o=>o.own);
+    const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb})).filter(o=>PALETTE[o.i].own);
     if(!owned.length){ $("status").textContent="Turn on at least one tile color in the palette first."; return; }
-    // render the composite INSIDE the frame to an offscreen buffer (no grid/labels), a few samples per cell
-    const SUB=5, sw=gw*SUB, sh=gh*SUB;
+    const ignoreBg=$("optIgnoreBg").checked, contrast=+$("optContrast").value, bright=+$("optBright").value;
+    const cf=1+contrast/100, bAdd=bright*1.28, adj=v=>{ v=(v-128)*cf+128+bAdd; return v<0?0:v>255?255:v; };
+    // Render the framed composite to an offscreen buffer with smoothing OFF, so thin features (the legs,
+    // the neck) stay crisp rather than blurring into the background. A few samples per cell.
+    const SUB=8, sw=gw*SUB, sh=gh*SUB;
     const off=document.createElement("canvas"); off.width=sw; off.height=sh;
-    const o=off.getContext("2d"); o.imageSmoothingEnabled=true; o.imageSmoothingQuality="high";
-    o.fillStyle="#ffffff"; o.fillRect(0,0,sw,sh);                 // transparent areas read as white (a White tile)
+    const o=off.getContext("2d"); o.imageSmoothingEnabled=false;
     o.save(); o.scale(sw/frame.w, sh/frame.h); o.translate(-frame.x,-frame.y);
-    layers.forEach(L=>o.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h));
+    layers.forEach(L=>o.drawImage(sampleSrc(L,ignoreBg),L.x,L.y,L.w,L.h));   // ignore-bg -> sample a bg-removed copy
     o.restore();
     const d=o.getImageData(0,0,sw,sh).data;
-    // each cell votes among its sub-samples' nearest owned colour (mode, not average - avoids muddy blends)
+    const isBg=p=>ignoreBg && d[p+3]<40;                                     // transparent (removed backdrop) -> empty cell
+    // Each cell votes among its NON-background sub-samples (mode). A cell with any subject wins subject, so a
+    // thin leg crossing a mostly-empty cell still becomes a tile instead of being outvoted by the backdrop.
     const idx=[], counts={};
     for(let r=0;r<gh;r++){ idx[r]=[];
       for(let c=0;c<gw;c++){
-        const v={};
+        const v={}; let fg=0;
         for(let yy=0;yy<SUB;yy++) for(let xx=0;xx<SUB;xx++){
           const p=(((r*SUB+yy)*sw)+(c*SUB+xx))*4;
-          const oi=nearestOwned([d[p],d[p+1],d[p+2]], owned).i;
-          v[oi]=(v[oi]||0)+1;
+          if(isBg(p)) continue;
+          fg++; const oi=nearestOwned([adj(d[p]),adj(d[p+1]),adj(d[p+2])], owned).i; v[oi]=(v[oi]||0)+1;
         }
+        if(!fg){ idx[r][c]=-1; continue; }                       // all background -> an empty cell (no tile)
         let bi=-1,bn=-1; for(const k in v){ if(v[k]>bn){bn=v[k];bi=+k;} }
         idx[r][c]=bi; counts[bi]=(counts[bi]||0)+1;
       }
     }
     built={gw,gh,idx,counts}; viewMode="mosaic";
     renderBOM(); render();
-    $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+(gw*gh)+" tiles. Parts list below. Press View to compare with the photo.";
+    const tiled=Object.values(counts).reduce((a,b)=>a+b,0);
+    $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles"+(tiled<gw*gh?", "+(gw*gh-tiled)+" empty":"")+". Parts list below; press View to compare with the photo.";
   }
 
   function drawBuilt(){
@@ -512,7 +533,8 @@
     rows.forEach(row=>{ const p=PALETTE[row.i];
       h+='<tr><td style="padding:1px 3px"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.3);background:rgb('+p.rgb.join(',')+');vertical-align:middle"></span></td>'
         +'<td style="padding:1px 5px">'+p.name+'</td><td style="padding:1px 3px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums">'+row.n+'</td></tr>'; });
-    h+='</table><div style="margin-top:.35rem;font-weight:700">Total: '+(built.gw*built.gh)+' tiles · '+rows.length+' color'+(rows.length!==1?'s':'')+'</div>';
+    const tiled=rows.reduce((s,x)=>s+x.n,0);
+    h+='</table><div style="margin-top:.35rem;font-weight:700">Total: '+tiled+' tiles · '+rows.length+' color'+(rows.length!==1?'s':'')+'</div>';
     $("bom").innerHTML=h;
   }
 
@@ -521,6 +543,7 @@
 
   $("bBuild").onclick = build;
   $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; $("bView").classList.toggle("on",viewMode==="mosaic"); render(); };
+  ["optIgnoreBg","optContrast","optBright"].forEach(id=>$(id).addEventListener("input", ()=>{ if(built||viewMode==="mosaic") build(); }));   // live re-map once built
   buildSwatches();
 
   physical(); render();
