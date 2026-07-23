@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.10 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.11 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -219,14 +219,17 @@
       ctx.stroke();
     }
     ctx.lineWidth=1.5; ctx.strokeStyle="rgba(25,25,40,0.75)"; ctx.strokeRect(f.x+0.5,f.y+0.5,f.w-1,f.h-1);
-    if(showGrid){                                          // coordinate labels JUST OUTSIDE the frame, white-haloed
+    if(showGrid){                                          // coordinate labels in a tan header strip (top + left)
       const cw=f.w/gw, ch=f.h/gh, font=Math.max(7, Math.min(13, Math.min(cw,ch)*0.62));
-      ctx.font="600 "+font+"px system-ui,-apple-system,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
-      ctx.lineJoin="round"; ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,0.92)"; ctx.fillStyle="#3a2f1e";
-      const ny=f.y-font*0.9;
-      for(let c=0;c<gw;c++){ const x=f.x+(c+0.5)*cw, t=String(c+1); ctx.strokeText(t,x,ny); ctx.fillText(t,x,ny); }
-      const lx=f.x-font*1.0;
-      for(let r=0;r<gh;r++){ const y=f.y+(r+0.5)*ch, t=rowLabel(r); ctx.strokeText(t,lx,y); ctx.fillText(t,lx,y); }
+      const gT=Math.round(font*1.7), gL=Math.round(font*2.3);
+      ctx.fillStyle="#efe6d3";                             // the tan header behind the numbers and letters
+      ctx.fillRect(f.x-gL, f.y-gT, f.w+gL, gT);            // strip above (the numbers)
+      ctx.fillRect(f.x-gL, f.y-gT, gL, f.h+gT);            // strip to the left (the letters)
+      ctx.strokeStyle="#d8c4a0"; ctx.lineWidth=1;          // a hairline framing the header, like a ruler
+      ctx.strokeRect(f.x-gL+0.5, f.y-gT+0.5, f.w+gL-1, gT); ctx.strokeRect(f.x-gL+0.5, f.y-gT+0.5, gL, f.h+gT-1);
+      ctx.font="600 "+font+"px system-ui,-apple-system,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillStyle="#5a4a34";
+      for(let c=0;c<gw;c++) ctx.fillText(String(c+1), f.x+(c+0.5)*cw, f.y-gT/2);
+      for(let r=0;r<gh;r++) ctx.fillText(rowLabel(r),  f.x-gL/2,      f.y+(r+0.5)*ch);
     }
     ctx.restore();
   }
@@ -251,13 +254,13 @@
   const pt = e => { const r=cv.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; };
   const cornerAt = (b,p) => { const H=9, cs=cornersOf(b); for(let i=0;i<4;i++) if(Math.abs(p.x-cs[i][0])<=H&&Math.abs(p.y-cs[i][1])<=H) return i; return -1; };
   const inside = (b,p) => p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
-  function onBorder(f,p){ const T=6, x0=f.x,x1=f.x+f.w,y0=f.y,y1=f.y+f.h;
-    const nV=(Math.abs(p.x-x0)<=T||Math.abs(p.x-x1)<=T)&&p.y>=y0-T&&p.y<=y1+T;
-    const nH=(Math.abs(p.y-y0)<=T||Math.abs(p.y-y1)<=T)&&p.x>=x0-T&&p.x<=x1+T; return nV||nH; }
   const CURS=["nwse-resize","nesw-resize","nwse-resize","nesw-resize"];
+  // Priority: the selected object (its handles AND its whole body) first, then the frame (handles AND its
+  // whole interior - so clicking any cell grabs the frame), then the images beneath. A selected image stays
+  // grabbable even where the frame covers it.
   function pick(p){
-    if(sel){ const b=sel.kind==="frame"?frame:sel.obj; const c=cornerAt(b,p); if(c>=0) return {act:"resize",target:sel,corner:c}; }
-    if(frame){ const c=cornerAt(frame,p); if(c>=0) return {act:"resize",target:{kind:"frame"},corner:c}; if(onBorder(frame,p)) return {act:"move",target:{kind:"frame"}}; }
+    if(sel){ const b=sel.kind==="frame"?frame:sel.obj; const c=cornerAt(b,p); if(c>=0) return {act:"resize",target:sel,corner:c}; if(inside(b,p)) return {act:"move",target:sel}; }
+    if(frame){ const c=cornerAt(frame,p); if(c>=0) return {act:"resize",target:{kind:"frame"},corner:c}; if(inside(frame,p)) return {act:"move",target:{kind:"frame"}}; }
     for(let i=layers.length-1;i>=0;i--) if(inside(layers[i],p)) return {act:"move",target:{kind:"layer",obj:layers[i]}};
     return null;
   }
@@ -287,12 +290,19 @@
   window.addEventListener("mouseup", ()=>{ drag=null; });
 
   // ---- add images (Open / drop). Each Open ADDS a layer, so a composite can be built up ----
+  function visibleCenter(){                                        // center of the currently VISIBLE part of the canvas
+    const r=cv.getBoundingClientRect();
+    const l=Math.max(0,-r.left), t=Math.max(0,-r.top);
+    const rt=Math.min(r.width, (window.innerWidth||r.width)-r.left), bt=Math.min(r.height, (window.innerHeight||r.height)-r.top);
+    return { x:(l+rt)/2, y:(t+bt)/2 };
+  }
   function addImage(im, name){
     const {w,h}=boardCss();
     let iw=im.naturalWidth, ih=im.naturalHeight;
     const fit=Math.min(1, w*0.8/iw, h*0.8/ih);                     // fit within the workspace, but NEVER upscale (crisp)
     iw*=fit; ih*=fit;
-    const L={img:im, x:Math.round((w-iw)/2), y:Math.round((h-ih)/2), w:iw, h:ih};
+    const c=visibleCenter();                                       // drop it where the artist is looking, never below the fold
+    const L={img:im, x:Math.round(c.x-iw/2), y:Math.round(c.y-ih/2), w:iw, h:ih};
     layers.push(L); sel={kind:"layer",obj:L}; render();
     $("status").textContent = "Added "+(name||"an image")+" ("+im.naturalWidth+" × "+im.naturalHeight+" px). Drag to move, a corner to resize. Open another image to build a composite, then drag the grid frame over the part you want as the mosaic.";
   }
