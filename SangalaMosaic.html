@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.18 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.19 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -78,6 +78,7 @@
   .ebtn.on{background:linear-gradient(#bfe3ff,#8fcaf5);border-color:#3f8fd0;color:#123}   /* pressed / active toggle */
   .sw{width:26px;height:26px;border-radius:5px;border:2px solid #b9a67f;cursor:pointer;box-shadow:inset 0 1px 2px rgba(255,255,255,.35)}
   .sw.off{opacity:.3;filter:grayscale(.5);border-style:dashed}   /* a colour you don't own */
+  .sw.cur{box-shadow:0 0 0 2px #fff,0 0 0 4px #1a5fb4}           /* the current paint colour */
   #status{font-size:.92rem;color:#5a4a34;min-height:2.2rem;line-height:1.4;margin-top:.5rem}
   #bar{height:12px;background:#e3d6bd;border-radius:6px;overflow:hidden;margin:.6rem 0;display:none}
   #barfill{height:100%;width:0;background:#1fa85a;transition:width .2s}
@@ -116,8 +117,8 @@
     <div class="ltitle marker">Tools</div>
     <button class="ltbtn" id="tPhoto" disabled title="Coming soon — move and zoom the photo under the grid">🖼️<small>Photo</small></button>
     <button class="ltbtn" id="tFrame" disabled title="Coming soon — move and resize the framing grid">⊞<small>Frame</small></button>
-    <button class="ltbtn" id="tPaint" disabled title="Coming soon — click a tile to set its color by hand">🖌️<small>Paint</small></button>
-    <button class="ltbtn" id="tPick"  disabled title="Coming soon — sample a color to paint with">💧<small>Pick</small></button>
+    <button class="ltbtn" id="tPaint" title="Paint: after Build, click or drag cells to set their color by hand (right-click erases)">🖌️<small>Paint</small></button>
+    <button class="ltbtn" id="tPick"  title="Pick: click a cell to grab its color to paint with">💧<small>Pick</small></button>
   </div>
 
   <!-- (3) WORKSPACE / MAT -->
@@ -204,6 +205,7 @@
   let drag   = null;    // active move / resize
   let showGrid = true;
   let built = null, viewMode = "photo";   // the computed mosaic + which view is showing
+  let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick
 
   const gW = () => Math.max(1, Math.round(+$("gW").value)||32);
   const gH = () => Math.max(1, Math.round(+$("gH").value)||32);
@@ -298,6 +300,15 @@
     return null;
   }
   cv.addEventListener("mousedown", e=>{
+    if(activeTool==="paint"||activeTool==="pick"){
+      if(!built) return;
+      if(viewMode!=="mosaic"){ viewMode="mosaic"; render(); }
+      const cel=cellAt(pt(e)); if(!cel) return;
+      if(activeTool==="pick"){ const v=built.idx[cel.r][cel.c]; if(v>=0){ paintColor=v; setTool("paint"); } return; }
+      painting=true; eraseMode=(e.button===2); lastCell=cel;
+      if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render();
+      e.preventDefault(); return;
+    }
     if(viewMode==="mosaic"){ viewMode="photo"; render(); return; }   // first click leaves the result view, back to editing
     const p=pt(e), t=pick(p);
     if(!t){ if(sel){ sel=null; render(); } return; }
@@ -310,6 +321,8 @@
     render(); e.preventDefault();
   });
   window.addEventListener("mousemove", e=>{
+    if(painting){ const cel=cellAt(pt(e)); if(cel&&(!lastCell||cel.r!==lastCell.r||cel.c!==lastCell.c)){ lastCell=cel; if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render(); } return; }
+    if(activeTool==="paint"||activeTool==="pick"){ cv.style.cursor = built?"cell":"default"; return; }
     if(!drag){ const p=pt(e), t=pick(p); cv.style.cursor = !t?"default":(t.act==="resize"?CURS[t.corner]:"move"); return; }
     if(built) invalidate();                                          // editing the composite makes any built mosaic stale
     const p=pt(e), b=sel.kind==="frame"?frame:sel.obj;
@@ -322,7 +335,7 @@
     }
     render();
   });
-  window.addEventListener("mouseup", ()=>{ drag=null; });
+  window.addEventListener("mouseup", ()=>{ if(painting){ painting=false; renderBOM(); return; } drag=null; });
 
   // ---- add images (Open / drop). Each Open ADDS a layer, so a composite can be built up ----
   function visibleCenter(){                                        // center of the currently VISIBLE part of the canvas
@@ -457,13 +470,45 @@
 
   function buildSwatches(){
     const box=$("swatches"); box.innerHTML="";
-    PALETTE.forEach(p=>{
-      const s=document.createElement("div");
-      const lbl=()=>p.name+(p.own?" — owned (click to drop)":" — not owned (click to add)");
-      s.className="sw"+(p.own?"":" off"); s.title=lbl(); s.style.background="rgb("+p.rgb.join(",")+")";
-      s.onclick=()=>{ p.own=!p.own; s.className="sw"+(p.own?"":" off"); s.title=lbl(); invalidate(); render(); };
+    PALETTE.forEach((p,i)=>{
+      const s=document.createElement("div"); s.style.background="rgb("+p.rgb.join(",")+")";
+      s.onclick=()=>{
+        if(activeTool==="paint"||activeTool==="pick"){ paintColor=i; p.own=true; if(activeTool==="pick") setTool("paint"); refreshSwatches(); }
+        else { p.own=!p.own; invalidate(); refreshSwatches(); render(); }   // set-up mode: toggle ownership
+      };
       box.appendChild(s);
     });
+    refreshSwatches();
+  }
+  function refreshSwatches(){
+    const paintMode=(activeTool==="paint"||activeTool==="pick");
+    [...$("swatches").children].forEach((s,i)=>{ const p=PALETTE[i];
+      s.className="sw"+(p.own?"":" off")+(paintMode&&i===paintColor?" cur":"");
+      s.title = paintMode ? (p.name+(i===paintColor?" — painting with this":" — click to paint with this"))
+                          : (p.name+(p.own?" — owned (click to drop)":" — not owned (click to add)"));
+    });
+  }
+  // ---- Paint / Pick: hand-edit the built mosaic, tile by tile ----
+  function setTool(t){
+    activeTool=t;
+    $("tPaint").classList.toggle("on", t==="paint"); $("tPick").classList.toggle("on", t==="pick");
+    if(t==="paint"||t==="pick"){ if(built) viewMode="mosaic"; cv.style.cursor="cell"; } else cv.style.cursor="default";
+    refreshSwatches(); render();
+    if(t==="paint") $("status").textContent = built ? "Paint: pick a color below, then click or drag cells. Right-click erases a cell." : "Build a mosaic first — then Paint fixes it tile by tile.";
+    else if(t==="pick") $("status").textContent = built ? "Pick: click a cell to grab its color, then paint with it." : "Build a mosaic first.";
+  }
+  function cellAt(p){
+    if(!built) return null; const f=frame, gw=built.gw, gh=built.gh;
+    if(p.x<f.x||p.x>=f.x+f.w||p.y<f.y||p.y>=f.y+f.h) return null;
+    const c=Math.floor((p.x-f.x)/f.w*gw), r=Math.floor((p.y-f.y)/f.h*gh);
+    return (c<0||c>=gw||r<0||r>=gh)?null:{r,c};
+  }
+  function setCell(r,c,t){                                     // incremental so a drag stays snappy
+    const old=built.idx[r][c]; if(old===t) return false;
+    built.idx[r][c]=t;
+    if(old>=0 && --built.counts[old]<=0) delete built.counts[old];
+    if(t>=0) built.counts[t]=(built.counts[t]||0)+1;
+    return true;
   }
 
   // redmean colour distance - cheap but decently perceptual
@@ -586,6 +631,9 @@
 
   $("bBuild").onclick = build;
   $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; $("bView").classList.toggle("on",viewMode==="mosaic"); render(); };
+  $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
+  $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
+  cv.addEventListener("contextmenu", e=>{ if(activeTool==="paint") e.preventDefault(); });   // right-click = erase, no menu
   $("colorsVal").textContent=$("optColors").value;
   ["optIgnoreBg","optColors","optClean","optContrast","optBright"].forEach(id=>$(id).addEventListener("input", ()=>{
     $("colorsVal").textContent=$("optColors").value;
