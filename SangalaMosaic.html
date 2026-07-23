@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.6 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.7 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -62,7 +62,7 @@
   .board{position:relative;border-radius:12px;padding:14px;border:6px solid #8a6a44;
     box-shadow:inset 0 0 24px rgba(60,40,20,.4);min-height:74vh;display:flex;align-items:center;justify-content:center}
   body.dropping .board{border-color:#2d7bb8;box-shadow:0 0 0 4px rgba(45,123,184,.55),inset 0 0 24px rgba(60,40,20,.4)}
-  #cv{max-width:calc(100% - 40px);max-height:72vh;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.35);background:#fff}
+  #cv{border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.35);background:#fff}   /* size is set in JS at device resolution, for crisp pixels */
   #empty{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#6b5a44;text-align:center;font-size:1rem;line-height:1.6;user-select:none;pointer-events:none;opacity:.95}
   #empty b{display:block;font-size:1.15rem;margin-bottom:.3rem;color:#4a3620}
 
@@ -180,28 +180,37 @@
   $("gH").addEventListener("input", () => { physical(); render(); });
   physical();
 
-  // --- the mat / work area: a FIXED work surface (the mosaic area). Its size follows the grid, never the
-  //     photo. A photo is PLACED onto the mat and never resizes it - same as Sangala Studio, where the mat
-  //     stays put no matter what you drop on it. ---
-  const MAT_LONG = 900;   // logical px of the mat's long side; CSS then scales the whole mat to fit the board
+  // --- the mat / work area: a FIXED work surface sized to the board (never to the photo), rendered at the
+  //     device's true resolution so it is crisp. The photo is placed at up to 70% of the mat and is NEVER
+  //     enlarged past its own pixels (1:1 cap) - upscaling a small photo is what makes it look soft. ---
   function render(){
     const gw = Math.max(1, Math.round(+$("gW").value)||32);
     const gh = Math.max(1, Math.round(+$("gH").value)||32);
-    cv.width  = gw>=gh ? MAT_LONG : Math.round(MAT_LONG*gw/gh);   // mat aspect = grid aspect (32 x 32 -> square)
-    cv.height = gh>=gw ? MAT_LONG : Math.round(MAT_LONG*gh/gw);
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,cv.width,cv.height);
+    const aspect = gw/gh;                                        // mat shape follows the grid (32 x 32 -> square)
+    const br = $("board").getBoundingClientRect();
+    const availW = Math.max(120, br.width  - 28 - 40);           // board padding (14 x 2) + cork breathing room
+    const availH = Math.max(120, br.height - 28 - 24);
+    let mW, mH;                                                  // mat size in CSS px, fit inside the board
+    if(availW/availH > aspect){ mH = availH; mW = mH*aspect; } else { mW = availW; mH = mW/aspect; }
+    const dpr = window.devicePixelRatio || 1;
+    cv.style.width = mW+"px"; cv.style.height = mH+"px";
+    cv.width = Math.round(mW*dpr); cv.height = Math.round(mH*dpr);   // backing store at device resolution -> no blur
+    ctx.setTransform(dpr,0,0,dpr,0,0);                           // draw in CSS px; dpr handles the crispness
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,mW,mH);
     if(img){
-      // Same as Sangala Studio: the photo is placed at ~70% of the mat, centered, so the mat always
-      // shows a margin around it. The mat never resizes to the photo, and the photo never fills it.
-      const s = Math.min(cv.width*0.7/img.naturalWidth, cv.height*0.7/img.naturalHeight);
+      const s = Math.min(1, mW*0.7/img.naturalWidth, mH*0.7/img.naturalHeight);   // up to 70%, never enlarge past 1:1
       const w = img.naturalWidth*s, h = img.naturalHeight*s;
-      ctx.drawImage(img, (cv.width-w)/2, (cv.height-h)/2, w, h);
+      ctx.imageSmoothingEnabled = s < 1;                        // smooth only when shrinking; at 1:1 pixels pass through
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, (mW-w)/2, (mH-h)/2, w, h);
       $("empty").style.display = "none";
     } else {
       $("empty").style.display = "";
     }
   }
-  render();   // draw the mat immediately, before any photo is opened
+  render();                                   // draw the mat immediately, before any photo is opened
+  window.addEventListener("resize", render);  // keep the mat fit to the board as the window changes
+  window.addEventListener("load", render);    // re-fit once fonts/layout settle
   function loadFile(f){
     if(!f || !/^image\//.test(f.type)) return;
     const url = URL.createObjectURL(f);
