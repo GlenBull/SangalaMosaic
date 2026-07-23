@@ -1,0 +1,97 @@
+# Sangala Mosaic — project guide for Claude Code
+
+A browser tool that turns a photo into a **LEGO-tile mosaic** a person can build by hand on a
+baseplate. Import a photo, remove its background, frame it under a grid, and map it to a grid of
+1×1 tiles (target 32×32, the standard baseplate) using **only the tile colors the builder actually
+owns** — then read off a build chart and a parts list. Built for the same course and the same
+schools as Sangala Studio; piloted by Moses Kumenya at Hawthorne-Scribner High School in the
+Mt. Elgon region of Uganda, where a student's animal (the buffalo, the crested crane) becomes a
+mosaic.
+
+**This is a SEPARATE app from Sangala Studio, deliberately.** It shares the look and feel and can
+borrow code, but it lives in its own repo so Sangala Studio does not get overloaded. It may be
+folded into Sangala Studio later; for now, keep them apart. The sibling project is
+`D:\Code Projects\Silhouette Tools` (Sangala Studio).
+
+## What makes this different from Sangala Studio
+- **No bridge.** Sangala Studio carries a C# USB bridge because it drives a die cutter. Sangala
+  Mosaic drives nothing — it outputs a chart and a parts list a person builds by hand. So it is a
+  **single self-contained HTML file, pure browser, no server, no USB, no install.** Do not add a
+  bridge. If a print is ever needed, it prints from the browser.
+- Everything else about the environment is inherited from Sangala Studio: **no admin rights, no
+  install, works offline.** This constraint is absolute — the schools have no admin access.
+
+## The feature that matters most (do not lose sight of it)
+**Build to the tiles you actually have.** A generic photo-to-pixels filter is a toy; what makes
+this a build tool is mapping to a chosen SET of real tile colors and telling the builder how many
+of each they need.
+- Quantize to a palette that IS the builder's inventory, not "reduce to N colors."
+- Preload real LEGO 1×1 tile colors (BrickLink RGB values); let the builder check which they own.
+- Produce a **bill of materials** — "47 black, 23 white, 8 red…" — and optionally cap a color at
+  the number owned, letting the next-nearest available color absorb the overflow.
+This is the through-line. Resolution/pixelation sliders and pretty previews are secondary to it.
+
+## Agreed feature plan (2026-07-23, from the design discussion)
+Priority order, not a checklist to rush:
+1. **Palette-constrained mapping + bill of materials** (above). The centerpiece.
+2. **Photo layer** — import .jpg/.png, remove background offline, move/resize/zoom as a floating
+   layer under the grid. *Borrowable* from Sangala Studio (see below).
+3. **Grid layer** — a W×H grid (default 32×32) slid independently over the photo to set framing;
+   physical-size readout (32 × 8 mm ≈ 256 mm ≈ 10 in); optional seams where baseplates meet.
+   "Resolution" and "grid size" are the SAME knob here — the baseplate fixes it.
+4. **Per-tile manual override** — click a cell, pick a color. Auto never nails eyes/faces (the
+   buffalo's eyes were hand-placed). Essential, not optional.
+5. **Printable build chart** — coordinates (A1…) and a per-row run-length readout
+   ("row 12: 5 black, 3 white, 2 black"), the way mosaic/cross-stitch patterns are followed.
+6. **Image prep that earns its place at low resolution** — contrast/levels BEFORE quantizing
+   (a photo crushed to ~10 colors goes to mud otherwise); a dither toggle **default OFF** (flat
+   blocks — cluster-then-mode — usually beat Floyd–Steinberg under big tiles); background-fill
+   color for the removed background (those cells become real tiles).
+Deferred/out of scope, on purpose: generic filters (hue/saturation, art effects), any SVG or
+print-and-cut export (nothing is cut — tiles are placed), anything 3D. Those belong to Sangala
+Studio; pulling them in is the overloading this split is meant to avoid.
+
+## Sharing look and feel with Sangala Studio
+- The look is shared by **copying**, not by a live dependency. The CSS classes (`denim`, `cork`,
+  `marker`, `header`/`logo`/`tbtn`/`menu`, `stage`/`panel`/`board`, form controls) are lifted from
+  `Silhouette Tools/SangalaStudio.html`. When Studio's styling changes, port the change over
+  deliberately — there is no automatic link, and that is on purpose (no coupling to break).
+- The **buffalo icon** (inline base64) is shared as the About button, so the two apps read as one
+  family. Keep it inline — the single-file, self-contained rule holds here too.
+- Subtitle under the brand is **provisional** ("Mosaic design tool") until Glen confirms wording.
+
+## Borrowable code (copy, do not link)
+- **Photo import + background removal + move/resize** already exist in Sangala Studio as the
+  `refImg` layer (`SangalaStudio.html`) using `assets/imagetracer_v1.2.6.js`, offline. When we
+  build the photo layer, PORT those functions across — copy them, keep this app self-contained.
+
+## Conventions (same house rules as Sangala Studio)
+- **American spelling everywhere** — color, center, gray, behavior. US project, US course.
+- **NEVER write "honest", "honestly", "genuinely", or "straightforward"** — anywhere. Say the
+  thing plainly. (Glen has had to correct this repeatedly in the sibling project.)
+- Be concise and direct; prose over bullet lists unless a list is warranted. Do NOT use popup
+  question dialogs — ask inline, one question at a time.
+- The mosaic is built from 1×1 **tiles** (square, flat) placed on a baseplate; the **studs** the
+  tiles snap onto are round. Do not conflate tiles and studs.
+- **One change at a time, then let Glen test, then commit.** Commit after each verified-good state
+  so a regression is a `git diff` away.
+
+## Build & run
+Single file: open `SangalaMosaic.html` in a browser. No build step, no server. UI-only, so a
+change is just a refresh. Version marker on line 2 (`SANGALA_MOSAIC_VERSION`) follows the same
+date convention as Sangala Studio; bump it on any shipped change.
+
+## Approval & git
+- **Standing approval (same as Sangala Studio):** work confined to THIS repo, the temp scratch
+  folder, and pushing commits to this repo's GitHub once a remote exists. No need to ask.
+- **Always ask first:** anything outside this repo, system/account settings, creating the GitHub
+  remote, and any history-losing git (force-push, hard reset dropping commits, branch deletion).
+- No GitHub remote yet — local commits only until Glen okays creating one.
+
+## Current state (as of setup, 2026-07-23)
+- Folder created, `git init`, this guide, and the **shared shell** (`SangalaMosaic.html`): the
+  Sangala chrome (denim header, brand, About with the buffalo icon, three-column stage) plus a
+  first real capability — open or drag-drop a photo and it draws on the board. No mosaic logic yet.
+- Test material copied into `images/`: `Crested Crane.png` (source photo), `Crested Crane
+  (Mosaic).png` and `African Buffalo (LEGO).jpg` (reference mosaics to match), `Samweli Wanda.png`.
+- Next step is the grid layer over the photo, then palette-constrained mapping.

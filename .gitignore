@@ -1,0 +1,7 @@
+# Sangala Mosaic — a single self-contained HTML file plus assets. Nothing to build.
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.tmp
+*.bak
+~$*
