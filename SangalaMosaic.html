@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.7 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.8 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -73,6 +73,7 @@
   .ebtn{font-size:.9rem;padding:.5rem;border-radius:9px;border:1px solid #b7c1cd;background:linear-gradient(#fff,#e7ecf2);box-shadow:inset 0 1px 0 #fff,0 2px 3px rgba(0,0,0,.22);cursor:pointer;color:#26303a}
   .ebtn:hover{background:linear-gradient(#fff,#dbe6f3)}
   .ebtn:disabled{opacity:.45;cursor:default;box-shadow:none}
+  .ebtn.on{background:linear-gradient(#bfe3ff,#8fcaf5);border-color:#3f8fd0;color:#123}   /* pressed / active toggle */
   #status{font-size:.92rem;color:#5a4a34;min-height:2.2rem;line-height:1.4;margin-top:.5rem}
   #bar{height:12px;background:#e3d6bd;border-radius:6px;overflow:hidden;margin:.6rem 0;display:none}
   #barfill{height:100%;width:0;background:#1fa85a;transition:width .2s}
@@ -135,7 +136,7 @@
     </div>
     <div class="hint" id="physical"></div>
     <div class="two" style="margin-top:.5rem">
-      <button class="ebtn" id="bShowGrid" disabled title="Coming soon">Show grid</button>
+      <button class="ebtn on" id="bShowGrid" title="Show or hide the tile grid on the mat">Show grid</button>
       <button class="ebtn" id="bFitGrid"  disabled title="Coming soon">Fit to photo</button>
     </div>
 
@@ -180,6 +181,21 @@
   $("gH").addEventListener("input", () => { physical(); render(); });
   physical();
 
+  // --- the tile grid over the mat: one cell per tile (gw x gh), the mosaic area itself ---
+  let showGrid = true;
+  function drawGrid(mW, mH, gw, gh){
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(45,45,55,0.30)";
+    ctx.beginPath();
+    for(let i=1;i<gw;i++){ const x = Math.round(i*mW/gw)+0.5; ctx.moveTo(x,0); ctx.lineTo(x,mH); }   // cell columns
+    for(let j=1;j<gh;j++){ const y = Math.round(j*mH/gh)+0.5; ctx.moveTo(0,y); ctx.lineTo(mW,y); }   // cell rows
+    ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(30,30,45,0.55)";   // a firmer outer border marks the mosaic edge
+    ctx.strokeRect(0.75, 0.75, mW-1.5, mH-1.5);
+    ctx.restore();
+  }
+
   // --- the mat / work area: a FIXED work surface sized to the board (never to the photo), rendered at the
   //     device's true resolution so it is crisp. The photo is placed at up to 70% of the mat and is NEVER
   //     enlarged past its own pixels (1:1 cap) - upscaling a small photo is what makes it look soft. ---
@@ -207,10 +223,17 @@
     } else {
       $("empty").style.display = "";
     }
+    if(showGrid) drawGrid(mW, mH, gw, gh);    // the grid sits on top of the mat and the photo
   }
   render();                                   // draw the mat immediately, before any photo is opened
   window.addEventListener("resize", render);  // keep the mat fit to the board as the window changes
   window.addEventListener("load", render);    // re-fit once fonts/layout settle
+
+  $("bShowGrid").addEventListener("click", () => {     // toggle the grid on/off
+    showGrid = !showGrid;
+    $("bShowGrid").classList.toggle("on", showGrid);
+    render();
+  });
   function loadFile(f){
     if(!f || !/^image\//.test(f.type)) return;
     const url = URL.createObjectURL(f);
