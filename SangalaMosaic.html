@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.30 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.31 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -166,7 +166,7 @@
 
     <h2 class="marker sub">Options</h2>
     <label style="display:flex;align-items:flex-start;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.15rem">
-      <input type="checkbox" id="optIgnoreBg" checked style="width:auto;margin:.15rem 0 0"> Ignore the background — leave it as empty cells so thin parts (legs, neck) aren't lost</label>
+      <input type="checkbox" id="optIgnoreBg" checked style="width:auto;margin:.15rem 0 0"> Ignore the background</label>
     <label class="fld" style="margin-top:.5rem">Colors — how many <span id="colorsVal" style="font-weight:700"></span><input type="range" id="optColors" min="2" max="16" value="9" style="width:100%"></label>
     <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.25rem">
       <input type="checkbox" id="optClean" checked style="width:auto;margin:0"> Clean up stray tiles</label>
@@ -175,7 +175,7 @@
 
     <h2 class="marker sub" style="display:flex;align-items:center;justify-content:space-between">Baseplate
       <button class="ebtn on" id="bShowPlate" title="Show or hide the baseplate behind the tiles" style="font-size:.72rem;padding:.22rem .55rem;flex:none">Shown</button></h2>
-    <div class="hint" style="margin-top:0">The plate the tiles sit on — LEGO's official baseplate colors.</div>
+    <div class="hint" style="margin-top:0">The plate the tiles sit on.</div>
     <div id="baseplates" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.4rem"></div>
 
     <h2 class="marker sub">Palette — your tiles</h2>
@@ -225,7 +225,7 @@
   // --- grid size -> live physical-size readout (real) ---
   function physical(){
     const w=gW(), h=gH(), mmW=w*TILE_MM, mmH=h*TILE_MM;
-    $("physical").innerHTML = w+" × "+h+" tiles · "+mmW+" × "+mmH+" mm · &approx; "+(mmW/25.4).toFixed(1)+" × "+(mmH/25.4).toFixed(1)+" in";
+    $("physical").innerHTML = w+" × "+h+" tiles · "+mmW+" × "+mmH+" mm";
   }
   function rowLabel(n){ let s=""; n++; while(n>0){ n--; s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26); } return s; }
   const boardCss = () => { const r=$("board").getBoundingClientRect(); return { w:Math.max(160,r.width-40), h:Math.max(160,r.height-40) }; };  // minus 14px padding + 6px border, each side
