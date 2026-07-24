@@ -206,6 +206,11 @@ date convention as Sangala Studio; bump it on any shipped change.
   file → `loadProject` (asks `confirm()` before replacing on-screen work), anything image → a new layer.
   Drag-and-drop routes through the same `openFile`. No server, no localStorage — a portable file the
   student keeps (Save-picker + Open-dispatch round-trip verified in-browser).
+- **Open project name** shows in the header (centered `#projName`, "Project: <name>") AND the browser tab
+  title, via `setProjectName()` — called on Open (`loadProject(text, name)` from the file's name) and on
+  Save (the picker's `h.name`, or "Mosaic project" on the download fallback), extension stripped. Studio
+  has the same gap (its `.svg` designs); extend the same indicator there once Glen has tested Mosaic's —
+  keep the two apps in sync on this.
 - **Print is live** (`bChart`, menu-bar 🖨️, labeled "Print"). `printMosaic()` prints the SAME WYSIWYG
   picture as Save image: `mosaicImageCanvas(true)` (opaque, so it prints on white paper) → a PNG data URL
   set on a hidden `#printArea` `<img>` → `window.print()`. An `@media print` block hides every body child
