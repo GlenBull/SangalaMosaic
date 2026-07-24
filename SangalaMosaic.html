@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.36 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.37 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -159,10 +159,11 @@
       <label class="fld">Down<input type="number" id="gH" min="8" max="96" step="1" value="32"></label>
     </div>
     <div class="hint" id="physical"></div>
-    <div class="showrow" style="margin-top:.55rem;display:flex;align-items:center;gap:.9rem;font-size:.85rem;color:#5a4a34">
+    <div class="showrow" style="margin-top:.55rem;display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .85rem;font-size:.85rem;color:#5a4a34">
       <span style="font-weight:700">Show</span>
       <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer" title="Show or hide the tile grid on the mat"><input type="checkbox" id="ckGrid" checked style="width:auto;margin:0"> Grid</label>
       <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer" title="Show or hide the baseplate behind the tiles"><input type="checkbox" id="ckPlate" checked style="width:auto;margin:0"> Baseplate</label>
+      <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer" title="Show or hide the outline around the mosaic area"><input type="checkbox" id="ckBox" checked style="width:auto;margin:0"> Box</label>
     </div>
     <button class="ebtn" id="bFitGrid" disabled title="Coming soon" style="width:100%;margin-top:.5rem">Fit to photo</button>
 
@@ -215,6 +216,7 @@
   let drag   = null;    // active move / resize
   let showGrid = true;
   let showPlate = true;   // whether the studded baseplate shows behind the built tiles
+  let showBox = true;     // the outline (bounding box) around the mosaic area
   let seeThrough = false; // translucent mosaic: the source photo shows through the tiles
   let built = null;   // the computed mosaic — a snapshot that lives in the grid; only Build (re)makes it
   let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick/Erase
@@ -260,7 +262,7 @@
       for(let j=1;j<gh;j++){ const y=Math.round(f.y+j*f.h/gh)+0.5; ctx.moveTo(f.x,y); ctx.lineTo(f.x+f.w,y); }
       ctx.stroke();
     }
-    ctx.lineWidth=1.5; ctx.strokeStyle="rgba(25,25,40,0.75)"; ctx.strokeRect(f.x+0.5,f.y+0.5,f.w-1,f.h-1);
+    if(showBox){ ctx.lineWidth=1.5; ctx.strokeStyle="rgba(25,25,40,0.75)"; ctx.strokeRect(f.x+0.5,f.y+0.5,f.w-1,f.h-1); }   // the outline (bounding box); the move/resize hit region is independent of this
     if(showGrid){                                          // coordinate labels in a tan header strip (top + left)
       const cw=f.w/gw, ch=f.h/gh, font=Math.max(7, Math.min(13, Math.min(cw,ch)*0.62));
       const gT=Math.round(font*1.7), gL=Math.round(font*2.3);
@@ -401,11 +403,11 @@
     const c=document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight;
     c.getContext("2d").drawImage(img,0,0); return c.toDataURL("image/png");
   }
-  function syncShow(){ $("ckGrid").checked=showGrid; $("ckPlate").checked=showPlate; $("baseplates").style.opacity=showPlate?"1":".4"; }   // reflect state onto the Show checkboxes
+  function syncShow(){ $("ckGrid").checked=showGrid; $("ckPlate").checked=showPlate; $("ckBox").checked=showBox; $("baseplates").style.opacity=showPlate?"1":".4"; }   // reflect state onto the Show checkboxes
   async function saveProject(){
     const proj={ app:"Sangala Mosaic", v:1, grid:{gw:gW(),gh:gH()}, frame,
       layers: layers.map(L=>({ src:imgToDataURL(L.img), x:L.x, y:L.y, w:L.w, h:L.h, bgRemoved:!!L.bgRemoved })),
-      built, palette:PALETTE.map(p=>!!p.own), baseIdx, showPlate, showGrid, seeThrough, paintColor,
+      built, palette:PALETTE.map(p=>!!p.own), baseIdx, showPlate, showGrid, showBox, seeThrough, paintColor,
       opts:{ ignoreBg:$("optIgnoreBg").checked, colors:$("optColors").value, clean:$("optClean").checked,
              contrast:$("optContrast").value, bright:$("optBright").value } };
     const blob=new Blob([JSON.stringify(proj)],{type:"application/json"});
@@ -429,7 +431,7 @@
       $("optClean").checked=!!p.opts.clean; $("optContrast").value=p.opts.contrast; $("optBright").value=p.opts.bright; }
     if(p.palette) PALETTE.forEach((pl,i)=>{ pl.own=p.palette[i]!==false; }); refreshSwatches();
     baseIdx=p.baseIdx||0; plateCache={key:null}; buildBaseplates();
-    showPlate=p.showPlate!==false; showGrid=p.showGrid!==false; seeThrough=!!p.seeThrough; paintColor=p.paintColor||1;
+    showPlate=p.showPlate!==false; showGrid=p.showGrid!==false; showBox=p.showBox!==false; seeThrough=!!p.seeThrough; paintColor=p.paintColor||1;
     syncShow();
     frame=p.frame||null; built=p.built||null; setTool("select");
     const out=new Array(p.layers.length); let pending=p.layers.length;
@@ -451,6 +453,7 @@
     $("baseplates").style.opacity=showPlate?"1":".4";   // dim the color swatches when there's no plate to color
     render();
   });
+  $("ckBox").addEventListener("change", ()=>{ showBox=$("ckBox").checked; render(); });
 
   // ---- layers: reorder / remove the selected image (layers[] is back-to-front) ----
   function updateSelPanel(){
