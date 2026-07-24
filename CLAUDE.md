@@ -56,6 +56,15 @@ Studio; pulling them in is the overloading this split is meant to avoid.
   `marker`, `header`/`logo`/`tbtn`/`menu`, `stage`/`panel`/`board`, form controls) are lifted from
   `Silhouette Tools/SangalaStudio.html`. When Studio's styling changes, port the change over
   deliberately — there is no automatic link, and that is on purpose (no coupling to break).
+- **Stay in sync with Sangala Studio — Glen's directive (2026-07-24): any future look-and-feel change is
+  made JOINTLY across BOTH apps; do not let one drift from the other.**
+- **About screen** matches Studio: the text is the content of `Documents/Sangala Mosaic.docx` (the About
+  document Glen maintains — edit that, then port it in), and it ends with a centered **Version** line
+  (`#aboutVersion`) read from the `SANGALA_MOSAIC_VERSION` marker on line 2 (the same value the updater
+  compares), exactly like Studio's `aboutVersion`.
+- **Desktop launcher:** `Turaco.ico` (repo root — 7 sizes 16→256, built with Pillow from the turaco head
+  crop) plus `Create Desktop Shortcut.cmd` make a Desktop shortcut that opens `SangalaMosaic.html` with the
+  turaco icon. Ship the `.ico` and `.cmd` alongside the HTML for the launcher to work.
 - **App icon = the turaco** (inline base64 on the About button + favicon). Each Sangala app has its
   OWN Mt. Elgon species icon (Studio keeps the buffalo, Mosaic gets the turaco — a colorful,
   uniquely-African bird); see [[app-icon-scheme]]. Source is `images/Turaco (Ver 3,0).png` (Glen's

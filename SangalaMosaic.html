@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.42 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.43 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -216,11 +216,14 @@
 <div class="modal" id="about">
   <div class="card">
     <h2 class="marker">Sangala Mosaic</h2>
-    <p>Sangala Mosaic turns a photo into a mosaic that can be built by hand from LEGO tiles on a
-      baseplate. It is part of the course <em>Introduction to Design through Making</em>. The word
-      &ldquo;sangala&rdquo; means joy in the Lugisu language of the Mt. Elgon region in East Africa.</p>
-    <p>It shares its look with Sangala Studio but is a separate tool, kept apart so neither one
-      grows unwieldy.</p>
+    <p>Sangala Mosaic is a mosaic design tool. An image or photograph can be used as a starting point to
+      design a mosaic that can be constructed from LEGO tiles or beads. It is one tool in a suite of design
+      tools that have been developed through the Sangala Initiative, a joint collaboration between the Make
+      to Learn Laboratory at the University of Virginia and REACH for Uganda. The word <em>sangala</em>
+      means joy in the Lugisu language of the Mt. Elgon region in east Africa.</p>
+    <p>The icon representing Sangala Mosaic in its logo and the desktop launcher is a mosaic of a turaco.
+      This bird may be found in the Mount Elgon National Park and is endemic to sub-Saharan Africa.</p>
+    <p id="aboutVersion" style="font-size:.82rem;color:#8a7a5c;margin:.7rem 0 0;text-align:center">Version &hellip;</p>
     <button id="aClose">Close</button>
   </div>
 </div>
@@ -913,7 +916,8 @@
   window.addEventListener("resize", render);                       // re-fit the canvas as the window changes
   window.addEventListener("load", render);
 
-  // --- About ---
+  // --- About --- (version read from the SANGALA_MOSAIC_VERSION marker on line 2, like Sangala Studio)
+  (function(){ let v=""; for(const n of document.childNodes){ if(n.nodeType===8){ const m=n.nodeValue.match(/SANGALA_MOSAIC_VERSION:\s*([\w.\-]+)/); if(m){ v=m[1]; break; } } } $("aboutVersion").textContent="Version "+v; })();
   $("bAbout").onclick = () => $("about").classList.add("show");
   $("aClose").onclick = () => $("about").classList.remove("show");
   $("about").addEventListener("click", e => { if(e.target === $("about")) $("about").classList.remove("show"); });
