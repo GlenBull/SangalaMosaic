@@ -217,5 +217,7 @@ date convention as Sangala Studio; bump it on any shipped change.
 - The auto-conversion gets ~80% toward the hand-built "gold standard"; Paint is the last-mile finish.
 - **Next candidates:** owned-tile *quantities* (cap a colour, overflow to next-nearest); Print chart
   (numbered chart + parts list); porting Studio's ML background removal (u2netp) for busy
-  backgrounds; optional dither. The left Photo/Frame tools are still redundant with direct
-  manipulation — drop or repurpose.
+  backgrounds; optional dither. The left rail's disabled **Photo** and **Frame** tools were removed
+  (2026-07-24) — redundant with direct manipulation (Open/drag adds photos; drag the frame to move it)
+  and modal, against the modeless design. The rail is now purely the post-build hand-edit tools
+  (Paint · Pick · Erase).
