@@ -151,14 +151,20 @@ date convention as Sangala Studio; bump it on any shipped change.
   legible. Hiding the plate dims the color swatches (nothing to color).
 - The workspace is **pinned to the viewport** (body flex column, 100vh, overflow hidden); the panel
   scrolls internally if tall — no page scroll.
-- **Save / Load** (menu bar, `bSave` / `bLoad`, added 2026-07-24). `saveProject()` serializes the whole
-  project to a **self-contained `.mosaic` file** (JSON, downloaded): the image layers with each photo
-  embedded as a PNG data URL (`imgToDataURL` draws `L.img` to a canvas — not tainted, since photos come
-  from blob/data URLs), the frame, grid size, the built mosaic (`built` incl. `idx`/`counts`), palette
-  ownership, baseplate, show-grid/plate/transparent flags, options, and paint color. `loadProject()`
-  restores all of it, re-loading each embedded photo (async, order preserved) and re-running `removeBg`
-  for layers that had it. Load asks `confirm()` before replacing on-screen work. No server, no
-  localStorage — a portable file the student keeps (round-trip verified in-browser).
+- **Save + Open** (menu bar, `bSave` / `bOpen`, added 2026-07-24). `saveProject()` serializes the whole
+  project to a **self-contained `.mosaic` file** (JSON): the image layers with each photo embedded as a
+  PNG data URL (`imgToDataURL` draws `L.img` to a canvas — not tainted, since photos come from blob/data
+  URLs), the frame, grid size, the built mosaic (`built` incl. `idx`/`counts`), palette ownership,
+  baseplate, show-grid/plate/transparent flags, options, and paint color. **Save uses the SAME method as
+  Sangala Studio: `window.showSaveFilePicker` (native Save As — the user picks folder + name), with a
+  plain-download fallback only where that API is missing.** Do NOT revert Save to a bare `a.download`; the
+  auto-dump to Downloads was a defect Glen flagged ("removing control from the user"). `loadProject()`
+  restores all of it, re-loading each embedded photo (async, order preserved) and re-running `removeBg` for
+  layers that had it. **There is ONE Open, not a separate Load** (`bLoad`/`#projfile` were removed): the
+  Open input accepts photos AND `.mosaic`/`.json`, and `openFile()` dispatches by name/type — a project
+  file → `loadProject` (asks `confirm()` before replacing on-screen work), anything image → a new layer.
+  Drag-and-drop routes through the same `openFile`. No server, no localStorage — a portable file the
+  student keeps (Save-picker + Open-dispatch round-trip verified in-browser).
 - Still disabled placeholders: **Print chart** (would print the chart + BOM), **Settings** (image
   prep), and the left tools (Photo/Frame/Paint/Pick — redundant with direct manipulation; decide
   whether to repurpose or drop). No dither/contrast controls yet.
