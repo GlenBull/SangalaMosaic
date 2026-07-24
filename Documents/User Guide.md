@@ -48,7 +48,9 @@ This is the heart of the tool. A mosaic is only buildable if it uses colors you 
 have, in numbers you can gather.
 
 - **The palette is your inventory.** Down the right side is a row of real LEGO tile
-  colors. Click a color to turn it **off** (you don't own it) or back **on** (you do).
+  colors, including several grays from very light to dark, so a mostly-gray subject
+  still shows its shading. Click a color to turn it **off** (you don't own it) or back
+  **on** (you do).
   Sangala builds using **only the colors that are on** — so the picture on screen is
   always something you could really build.
 - **The parts list is your gather list.** After you build, the **bill of materials** at
@@ -144,7 +146,7 @@ The built mosaic sits on a **baseplate** — the studded plate the tiles snap on
 see it the way it will really look.
 
 - **Baseplate color** — choose from the *Baseplate* swatches. These are limited to the
-  colors LEGO actually sells baseplates in (White, Green, Gray, Blue, Sand, Black, Red),
+  colors LEGO actually sells baseplates in (White, Green, Gray, Blue, Sand, Black, Red, and Light Blue),
   so your plan stays realistic. **White** is the default.
 - **Show or hide** — the **Baseplate** checkbox hides the plate for a clean,
   chart‑like view of just the tiles (handy for reading the pattern). With the plate
