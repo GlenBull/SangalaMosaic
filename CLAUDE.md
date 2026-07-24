@@ -172,9 +172,12 @@ date convention as Sangala Studio; bump it on any shipped change.
   renders JUST the mosaic to a fresh offscreen canvas via `mosaicImageCanvas()` (a print-friendly ~1600 px
   max side; reuses `getPlate` and the exact `drawBuilt` tile styling) and writes it through the same
   `showSaveFilePicker`; the picker's type dropdown offers PNG and JPEG and the chosen extension picks the
-  encoding. The image honors the **Baseplate** toggle (plate behind if shown, else a **transparent** PNG /
-  white JPEG); grid lines, labels and the outline are editing aids and are deliberately left out of the
-  saved picture. `loadProject()`
+  encoding. **The picture is a WYSIWYG of the Show checkboxes**, mirroring `render()`/`drawFrame()`: the
+  **Baseplate** (if shown, else a **transparent** PNG / white JPEG), the tiles, the cell lines +
+  **coordinate labels** when **Grid** is on (numbers across the top, letters down the left, in header-strip
+  margins `gT`/`gL` — so a student can print it and build the mosaic from the grid offline; do NOT strip the
+  grid back out), and the outline when **Box** is on. Cell lines follow the screen rule (shown only when the
+  plate is hidden; studs mark the grid otherwise). `loadProject()`
   restores all of it, re-loading each embedded photo (async, order preserved) and re-running `removeBg` for
   layers that had it. **There is ONE Open, not a separate Load** (`bLoad`/`#projfile` were removed): the
   Open input accepts photos AND `.mosaic`/`.json`, and `openFile()` dispatches by name/type — a project

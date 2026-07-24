@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.38 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.39 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -437,27 +437,45 @@
     a.download="Mosaic project.mosaic"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
     $("status").textContent="Saved your project to a file. Reopen it any time with Load.";
   }
-  // Render just the built mosaic (tiles, plus the baseplate if it is shown) to a fresh offscreen canvas
-  // at print-friendly resolution — used by "Save image". Honors the Baseplate toggle; grid lines, labels
-  // and the outline are editing aids and are left out of the saved picture.
+  // Render the mosaic to a fresh offscreen canvas at print-friendly resolution — used by "Save image".
+  // It is a picture of exactly what the Show checkboxes indicate: the baseplate (if shown), the tiles,
+  // the cell lines + coordinate labels (if Grid is on — so a student can print it and build from the
+  // grid offline), and the outline (if Box is on). Mirrors what render()/drawFrame() draw on screen.
   function mosaicImageCanvas(opaque){
     const gw=built.gw, gh=built.gh, idx=built.idx;
     const cell=Math.max(16, Math.min(44, Math.round(1600/Math.max(gw,gh))));   // crisp tiles, sensible file size
     const W=gw*cell, H=gh*cell;
-    const cvx=document.createElement("canvas"); cvx.width=W; cvx.height=H;
+    const font=Math.max(9, Math.min(30, Math.round(cell*0.5)));                 // coordinate labels, readable in print
+    const gT=showGrid?Math.round(font*1.7):0, gL=showGrid?Math.round(font*2.3):0;   // header strips (only with the grid)
+    const ox=gL, oy=gT;                                                          // content (plate + tiles) origin
+    const cvx=document.createElement("canvas"); cvx.width=gL+W; cvx.height=gT+H;
     const g=cvx.getContext("2d");
-    if(showPlate) g.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,W,H),0,0,W,H);   // studded plate behind
-    else if(opaque){ g.fillStyle="#ffffff"; g.fillRect(0,0,W,H); }                    // JPEG can't be transparent
+    if(opaque){ g.fillStyle="#ffffff"; g.fillRect(0,0,cvx.width,cvx.height); }   // JPEG can't be transparent
+    if(showPlate) g.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,W,H),ox,oy,W,H);   // studded plate behind
     const inset=Math.max(0.5, cell*0.05);
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
       const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;
-      const x=c*cell+inset, y=r*cell+inset, w=cell-2*inset, h=cell-2*inset;
+      const x=ox+c*cell+inset, y=oy+r*cell+inset, w=cell-2*inset, h=cell-2*inset;
       g.fillStyle="rgba(0,0,0,0.22)"; g.fillRect(x+1.2,y+1.6,w,h);                   // drop shadow -> raised
       g.fillStyle="rgb("+col.join(",")+")"; g.fillRect(x,y,w,h);                     // the tile
       g.strokeStyle="rgba(255,255,255,0.30)"; g.lineWidth=1;
       g.beginPath(); g.moveTo(x+0.5,y+h-0.5); g.lineTo(x+0.5,y+0.5); g.lineTo(x+w-0.5,y+0.5); g.stroke();
       g.strokeStyle="rgba(0,0,0,0.25)";
       g.beginPath(); g.moveTo(x+w-0.5,y+0.5); g.lineTo(x+w-0.5,y+h-0.5); g.lineTo(x+0.5,y+h-0.5); g.stroke();
+    }
+    if(showGrid && !showPlate){                                                  // cell lines - shown when the plate is hidden (studs mark the grid otherwise)
+      g.lineWidth=1; g.strokeStyle="rgba(45,45,55,0.32)"; g.beginPath();
+      for(let i=1;i<gw;i++){ const x=Math.round(ox+i*cell)+0.5; g.moveTo(x,oy); g.lineTo(x,oy+H); }
+      for(let j=1;j<gh;j++){ const y=Math.round(oy+j*cell)+0.5; g.moveTo(ox,y); g.lineTo(ox+W,y); }
+      g.stroke();
+    }
+    if(showBox){ g.lineWidth=1.5; g.strokeStyle="rgba(25,25,40,0.75)"; g.strokeRect(ox+0.5,oy+0.5,W-1,H-1); }   // the outline
+    if(showGrid){                                                                // coordinate header: numbers across the top, letters down the left
+      g.fillStyle="#efe6d3"; g.fillRect(0,0,gL+W,gT); g.fillRect(0,0,gL,gT+H);
+      g.strokeStyle="#d8c4a0"; g.lineWidth=1; g.strokeRect(0.5,0.5,gL+W-1,gT); g.strokeRect(0.5,0.5,gL,gT+H-1);
+      g.font="600 "+font+"px system-ui,-apple-system,sans-serif"; g.textAlign="center"; g.textBaseline="middle"; g.fillStyle="#5a4a34";
+      for(let c=0;c<gw;c++) g.fillText(String(c+1), ox+(c+0.5)*cell, gT/2);
+      for(let r=0;r<gh;r++) g.fillText(rowLabel(r), gL/2, oy+(r+0.5)*cell);
     }
     return cvx;
   }
