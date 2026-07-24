@@ -65,6 +65,14 @@ Studio; pulling them in is the overloading this split is meant to avoid.
 - **Desktop launcher:** `Turaco.ico` (repo root — 7 sizes 16→256, built with Pillow from the turaco head
   crop) plus `Create Desktop Shortcut.cmd` make a Desktop shortcut that opens `SangalaMosaic.html` with the
   turaco icon. Ship the `.ico` and `.cmd` alongside the HTML for the launcher to work.
+- **Updater:** `Update SangalaMosaic.cmd` — the parallel to Studio's `Update SangalaStudio.cmd`, but simpler
+  because Mosaic is a single page (no exe, no engine lock, no `taskkill`). Double-click it: it curls
+  `SangalaMosaic.html` from the repo's raw URL, checks it ends in `</html>`, gates on the
+  `SANGALA_MOSAIC_VERSION` marker (first `findstr` match = the line-2 comment; the About-JS references come
+  later and are ignored), and swaps the page in only when the version differs (keeping a `.bak`). It also
+  best-effort fetches `Turaco.ico` if missing and refreshes the Desktop shortcut every run — so running the
+  `.cmd` alone bootstraps a full install. The `.cmd` is stable infra: bump `SANGALA_MOSAIC_VERSION` on ANY
+  shipped page change or the checker calls it "already up to date".
 - **App icon = the turaco** (inline base64 on the About button + favicon). Each Sangala app has its
   OWN Mt. Elgon species icon (Studio keeps the buffalo, Mosaic gets the turaco — a colorful,
   uniquely-African bird); see [[app-icon-scheme]]. Source is `images/Turaco (Ver 3,0).png` (Glen's
