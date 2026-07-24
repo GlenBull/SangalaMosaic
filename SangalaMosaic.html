@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.47 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.48 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -353,6 +353,7 @@
       const inLeft = p.x>=b.x-frameGL && p.x<=b.x && p.y>=b.y-frameGT && p.y<=b.y+b.h;
       if(inTop||inLeft) return true;
     }
+    if(!showGrid && !showBox && inside(b,p)) return true;   // frame fully hidden (no labels, no outline) -> grab anywhere inside to move it
     return false;
   };
   const CURS=["nwse-resize","nesw-resize","nwse-resize","nesw-resize"];
