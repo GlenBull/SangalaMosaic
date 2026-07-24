@@ -29,7 +29,7 @@ need. That idea runs through the whole guide — Section 3 is the one to read cl
 
 Sangala Mosaic has four regions, like a workbench:
 
-- **Menu bar** (top) — *Open* a photo, and the ways of looking at your work: *Compare*, *Transparent*, and *About*.
+- **Menu bar** (top) — *Open* a photo, and the ways of looking at your work: *Transparent* and *About*.
 - **Tools** (left edge) — the by‑hand editing tools you use after building: *Paint*,
   *Pick*, and *Erase*.
 - **The workspace** (center) — your working surface. Your photo (or photos) and the
@@ -116,7 +116,7 @@ most want to capture.
 ## 7. Build It!
 
 Press the green **Build It!** button and Sangala maps the framed picture to your owned
-tiles, cell by cell, and shows the result on its baseplate. **Compare** and **Transparent** let you check it against the photo.
+tiles, cell by cell, and shows the result on its baseplate. **Transparent** lets you check it against the photo.
 
 A few controls (in the *Options* part of the panel) shape the result; change any one and
 the mosaic re‑maps at once:
@@ -151,16 +151,14 @@ see it the way it will really look.
 
 ---
 
-## 9. Seeing your work: Compare and Transparent
+## 9. Seeing your work
 
-Two ways to check the mosaic against your photo, both in the menu bar:
+The mosaic sits in the grid, so it is always on screen. Two ways to check it against the photo:
 
-- **Compare** — show the photo and the mosaic **side by side**, so you can judge the
-  likeness without flipping back and forth.
+- **Side by side** — the workspace stays live, so **Open** a copy of the photo and drag it beside
+  the mosaic; adding or moving it never disturbs the mosaic.
 - **Transparent** — make the tiles **translucent** so the photo shows through underneath.
   Turn this on while painting (Section 10) to trace the picture tile by tile.
-
-Click the workspace to leave a result view and go back to arranging.
 
 ---
 
@@ -203,7 +201,7 @@ every line is a color you have.
 | Make the mosaic | **Build It!** |
 | Simplify or add shading | The **Colors** slider |
 | Change the baseplate | **Baseplate** swatches; **Shown / Hidden** to hide it |
-| Compare with the photo | **Compare** or **Transparent** |
+| Compare with the photo | **Transparent**, or drag the photo beside the mosaic |
 | Fix a cell by hand | **Paint** / **Pick** / **Erase**; **Ctrl+Z** to undo |
 | Get the parts list | Read the **bill of materials** at the bottom |
 
