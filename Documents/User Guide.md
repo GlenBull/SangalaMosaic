@@ -29,7 +29,7 @@ need. That idea runs through the whole guide — Section 3 is the one to read cl
 
 Sangala Mosaic has four regions, like a workbench:
 
-- **Menu bar** (top) — *Open* a photo, and the ways of looking at your work: *Transparent* and *About*.
+- **Menu bar** (top) — *Open* a photo or a saved project, *Save* your work, *Print* the mosaic, and ways of looking at it: *Transparent* and *About*.
 - **Tools** (left edge) — the by‑hand editing tools you use after building: *Paint*,
   *Pick*, and *Erase*.
 - **The workspace** (center) — your working surface. Your photo (or photos) and the
@@ -104,8 +104,10 @@ how fine it is. Whatever falls **inside** the frame is what gets built.
    tall. The standard baseplate is **32 × 32**, and that is the default. The readout
    shows the real size — 32 × 32 tiles is about **256 mm ≈ 10 inches** — so you know how
    big the finished piece will be.
-3. *Show grid* — toggles the cell lines and the row and column labels (numbers across the
-   top, letters down the side) that you follow while building.
+3. *Show* — three checkboxes for what you see on the workspace: **Grid** (the cell lines and the
+   row and column labels — numbers across the top, letters down the side — that you follow while
+   building), **Baseplate** (the studded plate behind the tiles), and **Box** (the outline around
+   the mosaic). Turn any of them off — turn all three off to see just the mosaic itself.
 
 Fewer tiles across make bigger, blockier tiles and a coarser picture; more make a finer
 picture that needs more, smaller tiles. Slide the frame over the part of your animal you
@@ -144,7 +146,7 @@ see it the way it will really look.
 - **Baseplate color** — choose from the *Baseplate* swatches. These are limited to the
   colors LEGO actually sells baseplates in (White, Green, Gray, Blue, Sand, Black, Red),
   so your plan stays realistic. **White** is the default.
-- **Show or hide** — the **Shown / Hidden** button hides the plate for a clean,
+- **Show or hide** — the **Baseplate** checkbox hides the plate for a clean,
   chart‑like view of just the tiles (handy for reading the pattern). With the plate
   shown, the studs mark the grid; hide it and the cell lines return so empty cells stay
   clear.
@@ -187,7 +189,24 @@ every line is a color you have.
 
 ---
 
-## 12. Quick reference
+## 12. Saving and printing your work
+
+Once your mosaic looks the way you want, you can save it to finish later, reopen a saved
+project, or print it to build away from the computer.
+
+- **Save your work** — the *Save* button gives a choice. *Project* saves everything as a
+  .mosaic file — your photos, the grid, your palette, and the built mosaic — so you can reopen
+  it later and keep editing, and you choose where it goes. *Image* saves a picture of the
+  mosaic as a .png or .jpg.
+- **Reopen a project** — the same *Open* button that opens a photo also reopens a saved
+  .mosaic project, bringing your whole workspace back so you can carry on.
+- **Print** — the *Print* button prints the mosaic. The saved picture and the printout both
+  show exactly what the *Show* checkboxes show, so turn on **Grid** and you get a build chart
+  with the coordinates — print it and build the mosaic square by square, with no computer needed.
+
+---
+
+## 13. Quick reference
 
 | I want to… | Do this |
 |---|---|
@@ -200,14 +219,16 @@ every line is a color you have.
 | Say which tiles you own | Click colors in the **palette** to turn them on / off |
 | Make the mosaic | **Build It!** |
 | Simplify or add shading | The **Colors** slider |
-| Change the baseplate | **Baseplate** swatches; **Shown / Hidden** to hide it |
+| Change the baseplate | **Baseplate** swatches; uncheck **Baseplate** to hide it |
+| Save your work | **Save** → **Project** (.mosaic) or **Image** (.png / .jpg) |
+| Print the mosaic (or a build chart) | **Print** — turn on **Grid** for coordinates |
 | Compare with the photo | **Transparent**, or drag the photo beside the mosaic |
 | Fix a cell by hand | **Paint** / **Pick** / **Erase**; **Ctrl+Z** to undo |
 | Get the parts list | Read the **bill of materials** at the bottom |
 
 ---
 
-## 13. Which tools for which task
+## 14. Which tools for which task
 
 - **Turning your animal into a mosaic:** **Open** the photo, **Remove background**, frame
   it with the **grid**, set your **palette**, **Build It!**, then finish the face and
