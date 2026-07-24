@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.29 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.30 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -103,9 +103,8 @@
   <div class="logo"><b class="marker">Sangala Mosaic</b><small>Mosaic Design Tool</small></div>
   <div class="tools">
     <button class="tbtn" id="bOpen" title="Open a photo (.png, .jpg)"><span class="glyph">📂</span><small>Open</small></button>
-    <button class="tbtn" id="bView" disabled title="Switch between the photo and the built mosaic"><span class="glyph">👁️</span><small>View</small></button>
     <button class="tbtn" id="bCompare" disabled title="Show the photo beside the mosaic, side by side, to compare"><span class="glyph">🆚</span><small>Compare</small></button>
-    <button class="tbtn" id="bSeeThru" disabled title="See-through: make the mosaic tiles translucent so the photo shows through underneath"><span class="glyph">🌗</span><small>See-through</small></button>
+    <button class="tbtn" id="bSeeThru" disabled title="Transparent: make the mosaic tiles translucent so the photo shows through underneath"><span class="glyph">🌗</span><small>Transparent</small></button>
     <button class="tbtn" id="bChart" disabled title="Coming soon — print the build chart and parts list"><span class="glyph">🖨️</span><small>Print chart</small></button>
     <button class="tbtn" id="bSettings" disabled title="Coming soon — image prep and grid detail"><span class="glyph">⚙️</span><small>Settings</small></button>
   </div>
@@ -559,7 +558,7 @@
   function commitStroke(){ if(curStroke&&curStroke.size){ undoStack.push([...curStroke.values()]); redoStack.length=0; } curStroke=null; }
   function clearHistory(){ undoStack.length=0; redoStack.length=0; curStroke=null; }
   function apply(edits, useBefore){ for(const ed of edits) setCell(ed.r, ed.c, useBefore?ed.before:ed.after); }   // curStroke is null here, so no re-record
-  function showResult(){ viewMode="mosaic"; $("bView").classList.add("on"); }   // make the mosaic visible so the change shows
+  function showResult(){ viewMode="mosaic"; seeThrough=false; }   // make the solid mosaic visible so the change shows
   function undo(){
     if(!built||!undoStack.length){ $("status").textContent="Nothing to undo."; return; }
     const edits=undoStack.pop(); apply(edits,true); redoStack.push(edits); showResult();
@@ -663,7 +662,7 @@
     built={gw,gh,idx,counts}; viewMode="mosaic"; clearHistory();   // a fresh build starts a clean undo history
     renderBOM(); render();
     const tiled=Object.values(counts).reduce((a,b)=>a+b,0);
-    $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+Object.keys(counts).length+" colors. Press View to compare with the photo.";
+    $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+Object.keys(counts).length+" colors. Use Compare or Transparent to check it against the photo.";
   }
 
   // The studded baseplate, drawn once per (grid, colour, size) and reused - a stud on every cell (tiles cover
@@ -749,18 +748,16 @@
   function invalidate(){ if(built){ built=null; renderBOM(); clearHistory(); } viewMode="photo"; }
   function updateButtons(){
     $("bBuild").disabled=(layers.length===0);
-    $("bView").disabled=!built; $("bCompare").disabled=!built; $("bSeeThru").disabled=!built;
-    $("bView").classList.toggle("on", viewMode==="mosaic" && !seeThrough);
+    $("bCompare").disabled=!built; $("bSeeThru").disabled=!built;
     $("bCompare").classList.toggle("on", viewMode==="compare");
     $("bSeeThru").classList.toggle("on", seeThrough && viewMode==="mosaic");
   }
 
   $("bBuild").onclick = build;
-  $("bView").onclick  = ()=>{ if(!built) return; viewMode = viewMode==="mosaic"?"photo":"mosaic"; render(); };
-  $("bCompare").onclick = ()=>{ if(!built) return; viewMode = viewMode==="compare"?"photo":"compare";
-    $("status").textContent = viewMode==="compare" ? "Comparing: the photo (left) beside the mosaic (right). Click the workspace to go back to editing." : "Editing."; render(); };
+  $("bCompare").onclick = ()=>{ if(!built) return; viewMode = viewMode==="compare"?"mosaic":"compare";
+    $("status").textContent = viewMode==="compare" ? "Comparing: the photo (left) beside the mosaic (right). Click the workspace to go back to editing." : "The mosaic — click the workspace to edit."; render(); };
   $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough; if(seeThrough) viewMode="mosaic";
-    $("status").textContent = seeThrough ? "See-through: the photo shows through the translucent tiles. Toggle it off to see solid tiles." : "Solid tiles."; render(); };
+    $("status").textContent = seeThrough ? "Transparent: the photo shows through the translucent tiles. Toggle it off for solid tiles." : "Solid tiles."; render(); };
   $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
   $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
   $("tErase").onclick=()=>setTool(activeTool==="erase"?"select":"erase");
