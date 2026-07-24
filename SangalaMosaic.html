@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.44 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.45 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -445,8 +445,9 @@
       opts:{ ignoreBg:$("optIgnoreBg").checked, colors:$("optColors").value, clean:$("optClean").checked,
              contrast:$("optContrast").value, bright:$("optBright").value } };
     const blob=new Blob([JSON.stringify(proj)],{type:"application/json"});
+    const suggested = projectName ? projectName+".mosaic" : "Mosaic project.mosaic";   // default the Save dialog to the open project's name
     if(window.showSaveFilePicker){                         // native Save As (choose folder + name), same as Sangala Studio
-      let h; try{ h=await window.showSaveFilePicker({ suggestedName:"Mosaic project.mosaic",
+      let h; try{ h=await window.showSaveFilePicker({ suggestedName:suggested,
         types:[{description:"Sangala Mosaic project",accept:{"application/json":[".mosaic"]}}] }); }
       catch(e){ if(e&&e.name==="AbortError") return; $("status").textContent="Could not open the Save dialog: "+e.message; return; }
       try{ const ws=await h.createWritable(); await ws.write(blob); await ws.close(); setProjectName(h.name); $("status").textContent="Saved "+h.name+". Reopen it any time with Open."; }
@@ -454,8 +455,8 @@
       return;
     }
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);   // fallback: download to the default folder
-    a.download="Mosaic project.mosaic"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-    setProjectName("Mosaic project.mosaic");
+    a.download=suggested; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    setProjectName(suggested);
     $("status").textContent="Saved your project to a file. Reopen it any time with Open.";
   }
   // Render the mosaic to a fresh offscreen canvas at print-friendly resolution — used by "Save image".
