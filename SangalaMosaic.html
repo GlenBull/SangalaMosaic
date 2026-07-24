@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.46 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.47 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -281,9 +281,11 @@
     ctx.setTransform(dpr,0,0,dpr,0,0);
     return {w,h};
   }
+  let frameGT=0, frameGL=0;   // size of the drawn coordinate-label header (top, left) - a grab handle for moving
   function drawFrame(f, hideCells){
     const gw=gW(), gh=gH();
     ctx.save();
+    frameGT=0; frameGL=0;
     if(showGrid && !hideCells){                            // cell lines (hidden over the built mosaic - studs show the grid)
       ctx.lineWidth=1; ctx.strokeStyle="rgba(45,45,55,0.32)"; ctx.beginPath();
       for(let i=1;i<gw;i++){ const x=Math.round(f.x+i*f.w/gw)+0.5; ctx.moveTo(x,f.y); ctx.lineTo(x,f.y+f.h); }
@@ -294,6 +296,7 @@
     if(showGrid){                                          // coordinate labels in a tan header strip (top + left)
       const cw=f.w/gw, ch=f.h/gh, font=Math.max(7, Math.min(13, Math.min(cw,ch)*0.62));
       const gT=Math.round(font*1.7), gL=Math.round(font*2.3);
+      frameGT=gT; frameGL=gL;                             // the header is a grab handle (see onFrameHandle)
       ctx.fillStyle="#efe6d3";                             // the tan header behind the numbers and letters
       ctx.fillRect(f.x-gL, f.y-gT, f.w+gL, gT);            // strip above (the numbers)
       ctx.fillRect(f.x-gL, f.y-gT, gL, f.h+gT);            // strip to the left (the letters)
@@ -337,16 +340,28 @@
   const pt = e => { const r=cv.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; };
   const cornerAt = (b,p) => { const H=9, cs=cornersOf(b); for(let i=0;i<4;i++) if(Math.abs(p.x-cs[i][0])<=H&&Math.abs(p.y-cs[i][1])<=H) return i; return -1; };
   const inside = (b,p) => p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
-  const onBorder = (b,p) => { const T=7, x0=b.x,x1=b.x+b.w,y0=b.y,y1=b.y+b.h;   // within ~7px of an edge of the grid
+  const onBorder = (b,p) => { const T=10, x0=b.x,x1=b.x+b.w,y0=b.y,y1=b.y+b.h;   // within ~10px of an edge of the grid
     const nearV=(Math.abs(p.x-x0)<=T||Math.abs(p.x-x1)<=T)&&p.y>=y0-T&&p.y<=y1+T;
     const nearH=(Math.abs(p.y-y0)<=T||Math.abs(p.y-y1)<=T)&&p.x>=x0-T&&p.x<=x1+T; return nearV||nearH; };
+  // The frame's move handle = the border band OR the coordinate-label header (the tan strip of numbers/letters,
+  // top + left). So you can drag the whole ruler-like header to move the grid, like a window's title bar —
+  // not just the fine line at the frame edge.
+  const onFrameHandle = (b,p) => {
+    if(onBorder(b,p)) return true;
+    if(frameGT>0 || frameGL>0){
+      const inTop  = p.y>=b.y-frameGT && p.y<=b.y && p.x>=b.x-frameGL && p.x<=b.x+b.w;
+      const inLeft = p.x>=b.x-frameGL && p.x<=b.x && p.y>=b.y-frameGT && p.y<=b.y+b.h;
+      if(inTop||inLeft) return true;
+    }
+    return false;
+  };
   const CURS=["nwse-resize","nesw-resize","nwse-resize","nesw-resize"];
   // Priority: the GRID first — corners resize, the BORDER moves it — so the grid is always grabbable by its
   // edge, even where a photo covers it. Then the selected image (corner resize / body move), then any image
   // beneath. The grid's INTERIOR is not a grab target, so clicking inside it reaches the photo or mosaic.
   function pick(p){
     if(frame){ const c=cornerAt(frame,p); if(c>=0) return {act:"resize",target:{kind:"frame"},corner:c};
-      if(onBorder(frame,p)) return {act:"move",target:{kind:"frame"}}; }
+      if(onFrameHandle(frame,p)) return {act:"move",target:{kind:"frame"}}; }
     if(sel && sel.kind==="layer"){ const b=sel.obj; const c=cornerAt(b,p); if(c>=0) return {act:"resize",target:sel,corner:c}; if(inside(b,p)) return {act:"move",target:sel}; }
     for(let i=layers.length-1;i>=0;i--) if(inside(layers[i],p)) return {act:"move",target:{kind:"layer",obj:layers[i]}};
     return null;
