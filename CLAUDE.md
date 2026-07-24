@@ -116,8 +116,12 @@ date convention as Sangala Studio; bump it on any shipped change.
     absolute coords. Layers have a `draw` source separate from `img`, so **Remove background**
     (a per-image toggle in the Selected panel; flood-fill from the corners + feather + decontaminate)
     swaps a transparent version in without losing the original.
-- **Build It! is live** (the centerpiece). `PALETTE` is ~25 real LEGO solid tile colors, each with
-  an `own` flag; the swatch row toggles ownership (click). The pipeline (toward the "gold standard"
+- **Build It! is live** (the centerpiece). `PALETTE` is 27 real LEGO solid tile colors, each with
+  an `own` flag; the swatch row toggles ownership (click). **Append new tiles at the END only** —
+  saved `.mosaic` files index tiles by array position, so inserting/reordering corrupts them. (Grays
+  now span White · Very Light Gray `[205,208,206]` · Light Gray `[160,165,169]` · Medium Gray
+  `[108,110,104]` · Dark Gray `[89,93,96]` · Black — the light/medium grays were added 2026-07-24 so
+  designs like the crane get a real two-tone instead of collapsing to one Light Gray.) The pipeline (toward the "gold standard"
   clean look, per the design discussion): sample the framed composite to an offscreen (smoothing OFF,
   8/cell) → **average** each cell's non-background samples (flattens feather texture) → **k-means to
   K colors** (the `Colors` slider) and snap each group to its nearest OWNED tile (a textured body
@@ -145,8 +149,9 @@ date convention as Sangala Studio; bump it on any shipped change.
   cached (dpr-scaled) plate of round studs across the frame, and `drawBuilt()` draws each tile
   **raised** above it (bevel highlight/shade + a drop shadow + a thin seam inset), so tiles read as
   placed on the plate; empty cells show the bare plate. The plate color is chosen from `BASEPLATE` —
-  **seven colors LEGO actually offers as baseplates** (White default, Green, Gray, Blue, Sand/Tan,
-  Black, Red) via a single-select swatch row (`#baseplates`), so the preview stays realistic.
+  **eight colors LEGO actually offers as baseplates** (White default, Green, Gray, Blue, Sand/Tan,
+  Black, Red, and **Light Blue** `[159,195,233]` = LEGO Bright Light Blue, added 2026-07-24) via a
+  single-select swatch row (`#baseplates`), so the preview stays realistic.
   Visibility of the grid, the plate, and the outline is a **single `Show` control** in the Grid section —
   a `Show` label with three checkboxes, **Grid** (`#ckGrid`, `showGrid`), **Baseplate** (`#ckPlate`,
   `showPlate`), and **Box** (`#ckBox`, `showBox`, the frame outline / bounding box) — so any or all can be

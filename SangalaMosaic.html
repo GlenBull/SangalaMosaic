@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.40 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.41 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -660,7 +660,9 @@
     {name:"Dark Gray",     rgb:[89,93,96]},
     {name:"Purple",        rgb:[52,43,117]},
     {name:"Magenta",       rgb:[156,0,107]},
-    {name:"Pink",          rgb:[232,145,192]}
+    {name:"Pink",          rgb:[232,145,192]},
+    {name:"Very Light Gray", rgb:[205,208,206]},   // real LEGO grays appended (never inserted - saved files index by position)
+    {name:"Medium Gray",   rgb:[108,110,104]}
   ].map(p=>({name:p.name, rgb:p.rgb, own:true}));
 
   // Baseplate colours - limited to ones LEGO has actually sold as baseplates, so a design stays realistic.
@@ -671,7 +673,8 @@
     {name:"Blue",       rgb:[0,85,191]},
     {name:"Sand (Tan)", rgb:[215,197,154]},
     {name:"Black",      rgb:[27,42,52]},
-    {name:"Red",        rgb:[180,0,0]}
+    {name:"Red",        rgb:[180,0,0]},
+    {name:"Light Blue", rgb:[159,195,233]}   // LEGO Bright Light Blue - a real baseplate colour
   ];
   let baseIdx=0, plateCache={key:null};   // default White; cached studded-plate image
 
