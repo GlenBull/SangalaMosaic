@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.32 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.33 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -305,13 +305,17 @@
   const pt = e => { const r=cv.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; };
   const cornerAt = (b,p) => { const H=9, cs=cornersOf(b); for(let i=0;i<4;i++) if(Math.abs(p.x-cs[i][0])<=H&&Math.abs(p.y-cs[i][1])<=H) return i; return -1; };
   const inside = (b,p) => p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
+  const onBorder = (b,p) => { const T=7, x0=b.x,x1=b.x+b.w,y0=b.y,y1=b.y+b.h;   // within ~7px of an edge of the grid
+    const nearV=(Math.abs(p.x-x0)<=T||Math.abs(p.x-x1)<=T)&&p.y>=y0-T&&p.y<=y1+T;
+    const nearH=(Math.abs(p.y-y0)<=T||Math.abs(p.y-y1)<=T)&&p.x>=x0-T&&p.x<=x1+T; return nearV||nearH; };
   const CURS=["nwse-resize","nesw-resize","nwse-resize","nesw-resize"];
-  // Priority: the selected object (its handles AND its whole body) first, then the frame (handles AND its
-  // whole interior - so clicking any cell grabs the frame), then the images beneath. A selected image stays
-  // grabbable even where the frame covers it.
+  // Priority: the GRID first — corners resize, the BORDER moves it — so the grid is always grabbable by its
+  // edge, even where a photo covers it. Then the selected image (corner resize / body move), then any image
+  // beneath. The grid's INTERIOR is not a grab target, so clicking inside it reaches the photo or mosaic.
   function pick(p){
-    if(sel){ const b=sel.kind==="frame"?frame:sel.obj; const c=cornerAt(b,p); if(c>=0) return {act:"resize",target:sel,corner:c}; if(inside(b,p)) return {act:"move",target:sel}; }
-    if(frame){ const c=cornerAt(frame,p); if(c>=0) return {act:"resize",target:{kind:"frame"},corner:c}; if(inside(frame,p)) return {act:"move",target:{kind:"frame"}}; }
+    if(frame){ const c=cornerAt(frame,p); if(c>=0) return {act:"resize",target:{kind:"frame"},corner:c};
+      if(onBorder(frame,p)) return {act:"move",target:{kind:"frame"}}; }
+    if(sel && sel.kind==="layer"){ const b=sel.obj; const c=cornerAt(b,p); if(c>=0) return {act:"resize",target:sel,corner:c}; if(inside(b,p)) return {act:"move",target:sel}; }
     for(let i=layers.length-1;i>=0;i--) if(inside(layers[i],p)) return {act:"move",target:{kind:"layer",obj:layers[i]}};
     return null;
   }
