@@ -123,28 +123,22 @@ date convention as Sangala Studio; bump it on any shipped change.
   recolour outvoted speckle; conservative so 1-tile legs survive). Fills the **bill of materials**
   (counts per colour; total = TILED cells). Options: **Ignore background** (default on — samples a
   `removeBg`-isolated copy per layer so the backdrop is empty and thin parts survive), **Colors**,
-  **Clean up**, **Contrast**, **Brightness**; changing any re-maps live once a mosaic exists. The
-  `viewMode` state (photo / mosaic / compare) still drives rendering; any edit to the composite
-  invalidates the mosaic (`invalidate()`). **There is NO "View" button** — after Build the mosaic
-  shows automatically, and clicking the workspace returns to the photo (editing). Glen removed View
-  (2026-07-23) as redundant once Compare and Transparent exist; the two comparison tools reach the
-  mosaic, so a plain photo↔mosaic toggle wasn't needed.
-- **Compare view** (`bCompare`, `viewMode==="compare"`) shows the **framed source photo beside the
-  mosaic**, side by side, each pane labeled and fit to the grid's aspect — the direct way to compare
-  the animal with its mosaic. `drawCompare()` clips+scales the composite into the left pane and calls
-  `drawBuilt(rect)` (optional target rect, default the frame) into the right. It removes the need users
-  had to drop a *second* reference image beside the mosaic — which didn't work, because adding any
-  image calls `invalidate()` and moving any layer/frame invalidates too. **Compare toggles
-  compare↔mosaic** (off returns to the solid mosaic, not to editing); click the workspace to edit.
-  Active state shows on the menu button (`.tbtn.on .glyph`), centralized in `updateButtons()`.
-- **Transparent overlay** (menu label **Transparent**; internal id `bSeeThru`, var `seeThrough` — the
-  feature was renamed from "See-through" 2026-07-23, ids/vars kept) makes the mosaic translucent so the
-  **source photo shows through the tiles** — for checking the mosaic against the photo or tracing it
-  while painting. In mosaic view it draws `drawFramedPhoto(frame)` (the framed photo, factored out of
-  Compare) as the backdrop, then `drawBuilt(frame, true)` (the `noPlate` arg skips the studded plate) at
-  `globalAlpha 0.55`, then the frame's cell lines/labels over the top. Toggling it on forces mosaic
-  view (off returns to the solid mosaic); it composes with Paint, so you can hand-edit while seeing
-  the photo underneath.
+  **Clean up**, **Contrast**, **Brightness**; changing any re-maps live once a mosaic exists. The workspace is **modeless** (2026-07-23, at Glen's request — "No Modes"): there is NO `viewMode`
+  and NO photo/mosaic/compare switching. One live canvas always shows the photos, the grid on top,
+  and — once built — the mosaic drawn *in the grid*. **The mosaic is a snapshot; only Build It!
+  (re)makes it**, sampling whatever the grid currently covers. Nothing else discards it: moving or
+  resizing the grid or an image, adding / deleting / reordering images, toggling background removal or
+  tile ownership all leave the mosaic alone (`invalidate()` is now called only by a grid-size change,
+  where the cell count genuinely changes). So the grid, the images, and the mosaic (which rides inside
+  the grid, moving with it) are all draggable at all times.
+- **No Compare button** (removed 2026-07-23; `drawCompare` / `drawFramedPhoto` deleted). Because the
+  workspace stays live after Build, "compare" is just *drag the source photo next to the mosaic* — you
+  can add and place images freely after building — which made the dedicated Compare view redundant.
+- **Transparent overlay** (menu label **Transparent**; internal id `bSeeThru`, var `seeThrough` —
+  renamed from "See-through" 2026-07-23, ids/vars kept). Kept because it is the one thing you can't get
+  by arranging objects: it draws the mosaic tiles at `globalAlpha 0.55` over the photo *under the grid*
+  (`drawBuilt(frame, true)` — the `noPlate` arg skips the plate — plus the cell lines/labels), so you
+  can trace the photo while painting. Toggle off for the solid mosaic.
 - **Baseplate render.** The built mosaic sits on a **studded LEGO baseplate**: `getPlate()` draws a
   cached (dpr-scaled) plate of round studs across the frame, and `drawBuilt()` draws each tile
   **raised** above it (bevel highlight/shade + a drop shadow + a thin seam inset), so tiles read as

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.31 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-23.32 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -103,7 +103,6 @@
   <div class="logo"><b class="marker">Sangala Mosaic</b><small>Mosaic Design Tool</small></div>
   <div class="tools">
     <button class="tbtn" id="bOpen" title="Open a photo (.png, .jpg)"><span class="glyph">📂</span><small>Open</small></button>
-    <button class="tbtn" id="bCompare" disabled title="Show the photo beside the mosaic, side by side, to compare"><span class="glyph">🆚</span><small>Compare</small></button>
     <button class="tbtn" id="bSeeThru" disabled title="Transparent: make the mosaic tiles translucent so the photo shows through underneath"><span class="glyph">🌗</span><small>Transparent</small></button>
     <button class="tbtn" id="bChart" disabled title="Coming soon — print the build chart and parts list"><span class="glyph">🖨️</span><small>Print chart</small></button>
     <button class="tbtn" id="bSettings" disabled title="Coming soon — image prep and grid detail"><span class="glyph">⚙️</span><small>Settings</small></button>
@@ -215,7 +214,7 @@
   let showGrid = true;
   let showPlate = true;   // whether the studded baseplate shows behind the built tiles
   let seeThrough = false; // translucent mosaic: the source photo shows through the tiles
-  let built = null, viewMode = "photo";   // the computed mosaic + which view is showing
+  let built = null;   // the computed mosaic — a snapshot that lives in the grid; only Build (re)makes it
   let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick/Erase
   let undoStack = [], redoStack = [], curStroke = null;   // paint-edit history: each entry is one stroke's per-cell {before,after}
 
@@ -282,25 +281,22 @@
     cornersOf(b).forEach(c=>{ ctx.beginPath(); ctx.rect(c[0]-5,c[1]-5,10,10); ctx.fill(); ctx.stroke(); });
     ctx.restore();
   }
-  function render(){
+  function render(){                                                     // ONE live workspace: photos, the grid, the mosaic in the grid
     const {w,h}=fitCanvas();
     ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h);                       // the workspace page
+    layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });  // photos always
     ensureFrame();
-    if(viewMode==="compare" && built){
-      drawCompare();                                                      // photo beside mosaic, side by side
-    } else if(viewMode==="mosaic" && built){
-      if(seeThrough){                                                     // translucent: photo behind, tiles see-through on top
-        drawFramedPhoto(frame);
+    if(built){
+      if(seeThrough){                                                    // Transparent: translucent tiles over the photo underneath (tracing)
         ctx.save(); ctx.globalAlpha=0.55; drawBuilt(frame, true); ctx.restore();
-        drawFrame(frame, false);                                         // cell lines + labels help read the grid over the photo
+        drawFrame(frame, false);
       } else {
-        drawBuilt(); drawFrame(frame, showPlate);                        // built mosaic; studs show the grid, so cell lines only when the plate is hidden
+        drawBuilt(); drawFrame(frame, showPlate);                        // solid mosaic on its baseplate, drawn in the grid
       }
     } else {
-      layers.forEach(L=>{ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h); });
-      drawFrame(frame);                                                   // the grid frame, on top of the images
-      if(sel) drawHandles(sel.kind==="frame"?frame:sel.obj);             // selection handles
+      drawFrame(frame);                                                   // just the grid over the photos
     }
+    if(sel) drawHandles(sel.kind==="frame"?frame:sel.obj);              // selection handles always, so anything is grabbable
     $("empty").style.display = (layers.length||built) ? "none" : "";
     updateSelPanel(); updateButtons();
   }
@@ -322,14 +318,12 @@
   cv.addEventListener("mousedown", e=>{
     if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){
       if(!built) return;
-      if(viewMode!=="mosaic"){ viewMode="mosaic"; render(); }
       const cel=cellAt(pt(e)); if(!cel) return;
       if(activeTool==="pick"){ const v=built.idx[cel.r][cel.c]; if(v>=0){ paintColor=v; setTool("paint"); } return; }
       painting=true; eraseMode=(activeTool==="erase"||e.button===2); lastCell=cel; curStroke=new Map();   // record this stroke for undo
       if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render();
       e.preventDefault(); return;
     }
-    if(viewMode==="mosaic"||viewMode==="compare"){ viewMode="photo"; render(); return; }   // first click leaves the result view, back to editing
     const p=pt(e), t=pick(p);
     if(!t){ if(sel){ sel=null; render(); } return; }
     sel=t.target; const b=sel.kind==="frame"?frame:sel.obj;
@@ -344,8 +338,7 @@
     if(painting){ const cel=cellAt(pt(e)); if(cel&&(!lastCell||cel.r!==lastCell.r||cel.c!==lastCell.c)){ lastCell=cel; if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render(); } return; }
     if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){ cv.style.cursor = built?"cell":"default"; return; }
     if(!drag){ const p=pt(e), t=pick(p); cv.style.cursor = !t?"default":(t.act==="resize"?CURS[t.corner]:"move"); return; }
-    if(built) invalidate();                                          // editing the composite makes any built mosaic stale
-    const p=pt(e), b=sel.kind==="frame"?frame:sel.obj;
+    const p=pt(e), b=sel.kind==="frame"?frame:sel.obj;               // moving/resizing never discards the mosaic — only Build does
     if(drag.mode==="move"){ b.x=p.x-drag.dx; b.y=p.y-drag.dy; }
     else{
       let dx=p.x-drag.ax, dy=p.y-drag.ay, nw=Math.abs(dx), nh=Math.abs(dy);
@@ -371,7 +364,7 @@
     iw*=fit; ih*=fit;
     const c=visibleCenter();                                       // drop it where the artist is looking, never below the fold
     const L={img:im, draw:im, bgRemoved:false, x:Math.round(c.x-iw/2), y:Math.round(c.y-ih/2), w:iw, h:ih};
-    layers.push(L); sel={kind:"layer",obj:L}; invalidate(); render();
+    layers.push(L); sel={kind:"layer",obj:L}; render();
     $("status").textContent = "Added "+(name||"an image")+" ("+im.naturalWidth+" × "+im.naturalHeight+" px). Drag to move, a corner to resize. Open another image to build a composite, then drag the grid frame over the part you want as the mosaic.";
   }
   function loadFile(f){
@@ -409,12 +402,12 @@
     $("lBack").disabled  = $("lLower").disabled = (i<=0);
     $("lBg").textContent = sel.obj.bgRemoved ? "Restore background" : "Remove background";
   }
-  function reorder(fn){ if(!sel||sel.kind!=="layer") return; const i=layers.indexOf(sel.obj); if(i<0) return; fn(i); invalidate(); render(); }
+  function reorder(fn){ if(!sel||sel.kind!=="layer") return; const i=layers.indexOf(sel.obj); if(i<0) return; fn(i); render(); }
   $("lFront").onclick = ()=>reorder(i=>{ layers.splice(i,1); layers.push(sel.obj); });
   $("lRaise").onclick = ()=>reorder(i=>{ if(i<layers.length-1){ const t=layers[i]; layers[i]=layers[i+1]; layers[i+1]=t; } });
   $("lLower").onclick = ()=>reorder(i=>{ if(i>0){ const t=layers[i]; layers[i]=layers[i-1]; layers[i-1]=t; } });
   $("lBack").onclick  = ()=>reorder(i=>{ layers.splice(i,1); layers.unshift(sel.obj); });
-  $("lDel").onclick   = ()=>{ if(sel&&sel.kind==="layer"){ layers=layers.filter(L=>L!==sel.obj); sel=null; invalidate(); render(); } };
+  $("lDel").onclick   = ()=>{ if(sel&&sel.kind==="layer"){ layers=layers.filter(L=>L!==sel.obj); sel=null; render(); } };
 
   // Make the plain background transparent: flood-fill from the four corners, clearing pixels close to the
   // corner color. Flooding from the EDGES (not a global threshold) keeps interior matches - the crane's
@@ -452,7 +445,7 @@
     if(!sel||sel.kind!=="layer") return; const L=sel.obj;
     if(L.bgRemoved){ L.draw=L.img; L.bgRemoved=false; }
     else { L.draw=removeBg(L.img); L.bgRemoved=true; }
-    invalidate(); render();
+    render();
   };
 
   // ---- keyboard: Delete removes the selected image ----
@@ -515,7 +508,7 @@
       const s=document.createElement("div"); s.style.background="rgb("+p.rgb.join(",")+")";
       s.onclick=()=>{
         if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){ paintColor=i; p.own=true; if(activeTool!=="paint") setTool("paint"); refreshSwatches(); }
-        else { p.own=!p.own; invalidate(); refreshSwatches(); render(); }   // set-up mode: toggle ownership
+        else { p.own=!p.own; refreshSwatches(); render(); }   // toggle ownership (rebuild to apply it to the mosaic)
       };
       box.appendChild(s);
     });
@@ -533,7 +526,7 @@
   function setTool(t){
     activeTool=t;
     $("tPaint").classList.toggle("on", t==="paint"); $("tPick").classList.toggle("on", t==="pick"); $("tErase").classList.toggle("on", t==="erase");
-    if(t==="paint"||t==="pick"||t==="erase"){ if(built) viewMode="mosaic"; cv.style.cursor="cell"; } else cv.style.cursor="default";
+    if(t==="paint"||t==="pick"||t==="erase"){ cv.style.cursor="cell"; } else cv.style.cursor="default";
     refreshSwatches(); render();
     if(t==="paint") $("status").textContent = built ? "Paint: pick a color below, then click or drag cells. Ctrl+Z undoes." : "Build a mosaic first — then Paint fixes it tile by tile.";
     else if(t==="pick") $("status").textContent = built ? "Pick: click a cell to grab its color, then paint with it." : "Build a mosaic first.";
@@ -558,7 +551,7 @@
   function commitStroke(){ if(curStroke&&curStroke.size){ undoStack.push([...curStroke.values()]); redoStack.length=0; } curStroke=null; }
   function clearHistory(){ undoStack.length=0; redoStack.length=0; curStroke=null; }
   function apply(edits, useBefore){ for(const ed of edits) setCell(ed.r, ed.c, useBefore?ed.before:ed.after); }   // curStroke is null here, so no re-record
-  function showResult(){ viewMode="mosaic"; seeThrough=false; }   // make the solid mosaic visible so the change shows
+  function showResult(){}   // no-op: the mosaic always shows when built
   function undo(){
     if(!built||!undoStack.length){ $("status").textContent="Nothing to undo."; return; }
     const edits=undoStack.pop(); apply(edits,true); redoStack.push(edits); showResult();
@@ -659,7 +652,7 @@
     // 4. clean up (two gentle passes): kill speckle, fill pinholes, drop lone strays
     if(doClean){ idx=cleanup(idx,gw,gh); idx=cleanup(idx,gw,gh); }
     const counts={}; for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const v=idx[r][c]; if(v>=0) counts[v]=(counts[v]||0)+1; }
-    built={gw,gh,idx,counts}; viewMode="mosaic"; clearHistory();   // a fresh build starts a clean undo history
+    built={gw,gh,idx,counts}; clearHistory();   // a fresh build starts a clean undo history
     renderBOM(); render();
     const tiled=Object.values(counts).reduce((a,b)=>a+b,0);
     $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+Object.keys(counts).length+" colors. Use Compare or Transparent to check it against the photo.";
@@ -683,16 +676,6 @@
     }
     plateCache={key,canvas:cvp}; return cvp;
   }
-  // Draw the framed source photo scaled to fill a rect (used by Compare and by the see-through overlay).
-  function drawFramedPhoto(rect){
-    ctx.save(); ctx.beginPath(); ctx.rect(rect.x,rect.y,rect.w,rect.h); ctx.clip();
-    ctx.fillStyle="#fff"; ctx.fillRect(rect.x,rect.y,rect.w,rect.h);
-    const s=rect.w/frame.w;
-    ctx.translate(rect.x,rect.y); ctx.scale(s,s); ctx.translate(-frame.x,-frame.y);
-    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
-    layers.forEach(L=>ctx.drawImage(L.draw||L.img,L.x,L.y,L.w,L.h));
-    ctx.restore();
-  }
   function drawBuilt(rect, noPlate){
     const f=rect||frame, gw=built.gw, gh=built.gh, idx=built.idx, cw=f.w/gw, ch=f.h/gh;
     if(showPlate && !noPlate) ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
@@ -707,22 +690,6 @@
       ctx.strokeStyle="rgba(0,0,0,0.25)";
       ctx.beginPath(); ctx.moveTo(x+w-0.5,y+0.5); ctx.lineTo(x+w-0.5,y+h-0.5); ctx.lineTo(x+0.5,y+h-0.5); ctx.stroke(); // bottom/right shade
     }
-  }
-  // Side-by-side: the framed source photo on the left, the built mosaic on the right - so the crane can be
-  // compared with its mosaic without dropping a second image or disturbing the grid.
-  function drawCompare(){
-    const {w,h}=boardCss(), gap=26, labelH=24, availH=h-labelH-6, paneW=(w-gap)/2, ar=built.gw/built.gh;
-    const paneRect=px=>{ let pw=paneW, ph=pw/ar; if(ph>availH){ ph=availH; pw=ph*ar; } return {x:px+(paneW-pw)/2, y:labelH+(availH-ph)/2, w:pw, h:ph}; };
-    const left=paneRect(0), right=paneRect(paneW+gap);
-    drawFramedPhoto(left);                                                             // left: the framed photo
-    drawBuilt(right);                                                                  // right: the mosaic on its baseplate
-    ctx.save();
-    ctx.strokeStyle="rgba(35,35,50,0.55)"; ctx.lineWidth=1.5;
-    ctx.strokeRect(left.x+0.5,left.y+0.5,left.w-1,left.h-1); ctx.strokeRect(right.x+0.5,right.y+0.5,right.w-1,right.h-1);
-    ctx.fillStyle="#3a2f1e"; ctx.font="700 13px system-ui,-apple-system,sans-serif"; ctx.textAlign="center";
-    ctx.fillText("Photo", left.x+left.w/2, left.y-7);
-    ctx.fillText("Mosaic", right.x+right.w/2, right.y-7);
-    ctx.restore();
   }
   function buildBaseplates(){
     const box=$("baseplates"); box.innerHTML="";
@@ -745,18 +712,15 @@
     $("bom").innerHTML=h;
   }
 
-  function invalidate(){ if(built){ built=null; renderBOM(); clearHistory(); } viewMode="photo"; }
+  function invalidate(){ if(built){ built=null; renderBOM(); clearHistory(); } }   // now only grid-size change calls this
   function updateButtons(){
     $("bBuild").disabled=(layers.length===0);
-    $("bCompare").disabled=!built; $("bSeeThru").disabled=!built;
-    $("bCompare").classList.toggle("on", viewMode==="compare");
-    $("bSeeThru").classList.toggle("on", seeThrough && viewMode==="mosaic");
+    $("bSeeThru").disabled=!built;
+    $("bSeeThru").classList.toggle("on", seeThrough && built);
   }
 
   $("bBuild").onclick = build;
-  $("bCompare").onclick = ()=>{ if(!built) return; viewMode = viewMode==="compare"?"mosaic":"compare";
-    $("status").textContent = viewMode==="compare" ? "Comparing: the photo (left) beside the mosaic (right). Click the workspace to go back to editing." : "The mosaic — click the workspace to edit."; render(); };
-  $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough; if(seeThrough) viewMode="mosaic";
+  $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough;
     $("status").textContent = seeThrough ? "Transparent: the photo shows through the translucent tiles. Toggle it off for solid tiles." : "Solid tiles."; render(); };
   $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
   $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
@@ -765,7 +729,7 @@
   $("colorsVal").textContent=$("optColors").value;
   ["optIgnoreBg","optColors","optClean","optContrast","optBright"].forEach(id=>$(id).addEventListener("input", ()=>{
     $("colorsVal").textContent=$("optColors").value;
-    if(built||viewMode==="mosaic") build();   // live re-map once a mosaic exists
+    if(built) build();   // live re-map once a mosaic exists
   }));
   buildSwatches(); buildBaseplates();
 
