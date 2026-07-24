@@ -184,9 +184,15 @@ date convention as Sangala Studio; bump it on any shipped change.
   file → `loadProject` (asks `confirm()` before replacing on-screen work), anything image → a new layer.
   Drag-and-drop routes through the same `openFile`. No server, no localStorage — a portable file the
   student keeps (Save-picker + Open-dispatch round-trip verified in-browser).
-- Still disabled placeholders: **Print chart** (would print the chart + BOM), **Settings** (image
-  prep), and the left tools (Photo/Frame/Paint/Pick — redundant with direct manipulation; decide
-  whether to repurpose or drop). No dither/contrast controls yet.
+- **Print is live** (`bChart`, menu-bar 🖨️, labeled "Print"). `printMosaic()` prints the SAME WYSIWYG
+  picture as Save image: `mosaicImageCanvas(true)` (opaque, so it prints on white paper) → a PNG data URL
+  set on a hidden `#printArea` `<img>` → `window.print()`. An `@media print` block hides every body child
+  except `#printArea` (id specificity beats `body>*`), so ONLY the mosaic prints; it honors the Show
+  checkboxes, so Grid on gives a printable build chart with coordinates. Enabled only when a mosaic is
+  built. A repeat print reuses the already-loaded image (guards against the img `load` event not re-firing
+  on an identical `src`). Do NOT revert this to a "chart + BOM" placeholder; a parts-list page can be added
+  later as a second print section.
+- Still disabled placeholders: **Settings** (image prep). No dither/contrast controls yet.
 - Test material in `images/`: `Crested Crane.png`, `African Buffalo (LEGO).jpg`, the crane/buffalo
   reference mosaics, `Samweli Wanda.png`.
 - **Paint / Pick / Erase are live** (left rail). After Build, the **Paint** tool hand-edits the mosaic:

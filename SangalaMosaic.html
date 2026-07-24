@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.39 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.40 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -84,6 +84,16 @@
   .popmenu button:disabled{opacity:.4;cursor:default}
   .popmenu button:disabled:hover{background:none}
   .popmenu small{color:#8a7658;font-size:.72rem}
+  /* --- print: show ONLY the mosaic picture, following the Show checkboxes (same image as Save image) --- */
+  #printArea{display:none}
+  @media print{
+    html,body{height:auto !important;overflow:visible !important;background:#fff !important}
+    body{display:block !important}
+    body>*{display:none !important}
+    #printArea{display:block !important}
+    #printArea img{display:block;max-width:100%;height:auto;margin:0 auto}
+    @page{margin:12mm}
+  }
   .ebtn:disabled{opacity:.45;cursor:default;box-shadow:none}
   .ebtn.on{background:linear-gradient(#bfe3ff,#8fcaf5);border-color:#3f8fd0;color:#123}   /* pressed / active toggle */
   .sw{width:26px;height:26px;border-radius:5px;border:2px solid #b9a67f;cursor:pointer;box-shadow:inset 0 1px 2px rgba(255,255,255,.35)}
@@ -114,7 +124,7 @@
     <button class="tbtn" id="bOpen" title="Open a photo (.png, .jpg) or a project you saved (.mosaic)"><span class="glyph">📂</span><small>Open</small></button>
     <button class="tbtn" id="bSave" title="Save your project (.mosaic) or a picture of the mosaic (.png / .jpg)"><span class="glyph">💾</span><small>Save</small></button>
     <button class="tbtn" id="bSeeThru" disabled title="Transparent: make the mosaic tiles translucent so the photo shows through underneath"><span class="glyph">🌗</span><small>Transparent</small></button>
-    <button class="tbtn" id="bChart" disabled title="Coming soon — print the build chart and parts list"><span class="glyph">🖨️</span><small>Print chart</small></button>
+    <button class="tbtn" id="bChart" disabled title="Print the mosaic — exactly what the Show checkboxes show"><span class="glyph">🖨️</span><small>Print</small></button>
     <button class="tbtn" id="bSettings" disabled title="Coming soon — image prep and grid detail"><span class="glyph">⚙️</span><small>Settings</small></button>
   </div>
   <div class="spacer"></div>
@@ -126,6 +136,8 @@
   <button id="saveProj" title="Save the whole project so you can keep editing later">Project <small>.mosaic</small></button>
   <button id="saveImg" title="Save a picture of the mosaic">Image <small>.png / .jpg</small></button>
 </div>
+
+<div id="printArea"><img id="printImg" alt="Mosaic"></div>
 
 <div class="stage">
 
@@ -496,6 +508,15 @@
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="Mosaic.png";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
     $("status").textContent="Saved Mosaic.png.";
+  }
+  // Print follows the same rules as Save image: it prints the same WYSIWYG picture (baseplate, tiles, grid
+  // + coordinate labels, outline — whatever the Show checkboxes indicate). @media print shows only #printArea.
+  function printMosaic(){
+    if(!built){ $("status").textContent="Build the mosaic first, then print it."; return; }
+    const img=$("printImg"), url=mosaicImageCanvas(true).toDataURL("image/png");   // opaque so it prints on white paper
+    const go=()=>{ img.onload=img.onerror=null; window.print(); };
+    if(img.getAttribute("src")===url && img.complete) go();                        // same picture already loaded (repeat print)
+    else { img.onload=go; img.onerror=()=>{ img.onload=img.onerror=null; $("status").textContent="Could not prepare the print image."; }; img.src=url; }
   }
   function loadProject(text){
     let p; try{ p=JSON.parse(text); }catch(e){ p=null; }
@@ -869,11 +890,13 @@
     $("bBuild").disabled=(layers.length===0);
     $("bSeeThru").disabled=!built;
     $("bSeeThru").classList.toggle("on", seeThrough && built);
+    $("bChart").disabled=!built;                            // Print needs a built mosaic (same as Save image)
   }
 
   $("bBuild").onclick = build;
   $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough;
     $("status").textContent = seeThrough ? "Transparent: the photo shows through the translucent tiles. Toggle it off for solid tiles." : "Solid tiles."; render(); };
+  $("bChart").onclick = printMosaic;
   $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
   $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
   $("tErase").onclick=()=>setTool(activeTool==="erase"?"select":"erase");
