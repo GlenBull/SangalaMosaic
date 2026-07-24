@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.35 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.36 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -159,10 +159,12 @@
       <label class="fld">Down<input type="number" id="gH" min="8" max="96" step="1" value="32"></label>
     </div>
     <div class="hint" id="physical"></div>
-    <div class="two" style="margin-top:.5rem">
-      <button class="ebtn on" id="bShowGrid" title="Show or hide the tile grid on the mat">Show grid</button>
-      <button class="ebtn" id="bFitGrid"  disabled title="Coming soon">Fit to photo</button>
+    <div class="showrow" style="margin-top:.55rem;display:flex;align-items:center;gap:.9rem;font-size:.85rem;color:#5a4a34">
+      <span style="font-weight:700">Show</span>
+      <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer" title="Show or hide the tile grid on the mat"><input type="checkbox" id="ckGrid" checked style="width:auto;margin:0"> Grid</label>
+      <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer" title="Show or hide the baseplate behind the tiles"><input type="checkbox" id="ckPlate" checked style="width:auto;margin:0"> Baseplate</label>
     </div>
+    <button class="ebtn" id="bFitGrid" disabled title="Coming soon" style="width:100%;margin-top:.5rem">Fit to photo</button>
 
     <h2 class="marker sub">Options</h2>
     <label style="display:flex;align-items:flex-start;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.15rem">
@@ -173,8 +175,7 @@
     <label class="fld" style="margin-top:.5rem">Contrast<input type="range" id="optContrast" min="-100" max="100" value="0" style="width:100%"></label>
     <label class="fld" style="margin-top:.15rem">Brightness<input type="range" id="optBright" min="-100" max="100" value="0" style="width:100%"></label>
 
-    <h2 class="marker sub" style="display:flex;align-items:center;justify-content:space-between">Baseplate
-      <button class="ebtn on" id="bShowPlate" title="Show or hide the baseplate behind the tiles" style="font-size:.72rem;padding:.22rem .55rem;flex:none">Shown</button></h2>
+    <h2 class="marker sub">Baseplate</h2>
     <div class="hint" style="margin-top:0">The plate the tiles sit on.</div>
     <div id="baseplates" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.4rem"></div>
 
@@ -400,7 +401,7 @@
     const c=document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight;
     c.getContext("2d").drawImage(img,0,0); return c.toDataURL("image/png");
   }
-  function syncPlateBtn(){ const b=$("bShowPlate"); b.classList.toggle("on",showPlate); b.textContent=showPlate?"Shown":"Hidden"; $("baseplates").style.opacity=showPlate?"1":".4"; }
+  function syncShow(){ $("ckGrid").checked=showGrid; $("ckPlate").checked=showPlate; $("baseplates").style.opacity=showPlate?"1":".4"; }   // reflect state onto the Show checkboxes
   async function saveProject(){
     const proj={ app:"Sangala Mosaic", v:1, grid:{gw:gW(),gh:gH()}, frame,
       layers: layers.map(L=>({ src:imgToDataURL(L.img), x:L.x, y:L.y, w:L.w, h:L.h, bgRemoved:!!L.bgRemoved })),
@@ -429,7 +430,7 @@
     if(p.palette) PALETTE.forEach((pl,i)=>{ pl.own=p.palette[i]!==false; }); refreshSwatches();
     baseIdx=p.baseIdx||0; plateCache={key:null}; buildBaseplates();
     showPlate=p.showPlate!==false; showGrid=p.showGrid!==false; seeThrough=!!p.seeThrough; paintColor=p.paintColor||1;
-    syncPlateBtn(); $("bShowGrid").classList.toggle("on",showGrid);
+    syncShow();
     frame=p.frame||null; built=p.built||null; setTool("select");
     const out=new Array(p.layers.length); let pending=p.layers.length;
     const done=()=>{ layers=out.filter(Boolean); sel=null; renderBOM(); render(); $("status").textContent="Opened your project — keep working."; };
@@ -444,10 +445,9 @@
   // ---- grid controls ----
   $("gW").addEventListener("input", ()=>{ physical(); reshapeFrame(); invalidate(); render(); });
   $("gH").addEventListener("input", ()=>{ physical(); reshapeFrame(); invalidate(); render(); });
-  $("bShowGrid").addEventListener("click", ()=>{ showGrid=!showGrid; $("bShowGrid").classList.toggle("on",showGrid); render(); });
-  $("bShowPlate").addEventListener("click", ()=>{
-    showPlate=!showPlate;
-    const b=$("bShowPlate"); b.classList.toggle("on",showPlate); b.textContent=showPlate?"Shown":"Hidden";
+  $("ckGrid").addEventListener("change", ()=>{ showGrid=$("ckGrid").checked; render(); });
+  $("ckPlate").addEventListener("change", ()=>{
+    showPlate=$("ckPlate").checked;
     $("baseplates").style.opacity=showPlate?"1":".4";   // dim the color swatches when there's no plate to color
     render();
   });
@@ -792,7 +792,7 @@
     $("colorsVal").textContent=$("optColors").value;
     if(built) build();   // live re-map once a mosaic exists
   }));
-  buildSwatches(); buildBaseplates();
+  buildSwatches(); buildBaseplates(); syncShow();
 
   physical(); render();
   window.addEventListener("resize", render);                       // re-fit the canvas as the window changes

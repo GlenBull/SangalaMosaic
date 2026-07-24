@@ -109,7 +109,7 @@ date convention as Sangala Studio; bump it on any shipped change.
     resize; aspect locked to the grid, so cells stay square). It carries the cell lines and the
     coordinate labels (numbers 1..gw across the top, letters A..Z, AA.. down the left, drawn just
     OUTSIDE the frame with a white halo). Changing Across/Down reshapes it. The mosaic will be
-    whatever falls inside this frame. *Show grid* toggles the cells+labels; the frame border stays.
+    whatever falls inside this frame. The *Show* group's **Grid** checkbox toggles the cells+labels; the frame border stays.
   - Rendered at device resolution (`dpr`) for crisp pixels. Canvas fills the board; objects hold
     absolute coords. Layers have a `draw` source separate from `img`, so **Remove background**
     (a per-image toggle in the Selected panel; flood-fill from the corners + feather + decontaminate)
@@ -144,11 +144,15 @@ date convention as Sangala Studio; bump it on any shipped change.
   **raised** above it (bevel highlight/shade + a drop shadow + a thin seam inset), so tiles read as
   placed on the plate; empty cells show the bare plate. The plate color is chosen from `BASEPLATE` —
   **seven colors LEGO actually offers as baseplates** (White default, Green, Gray, Blue, Sand/Tan,
-  Black, Red) via a single-select swatch row (`#baseplates`), so the preview stays realistic. A
-  **Shown/Hidden toggle** (`#bShowPlate`, `showPlate`) in the Baseplate header hides the plate for a
-  clean chart-style view (tiles on white); when the plate is showing, the internal cell lines are
-  suppressed (studs mark the grid) and when it is hidden the cell lines return, so empty cells stay
-  legible. Hiding the plate dims the color swatches (nothing to color).
+  Black, Red) via a single-select swatch row (`#baseplates`), so the preview stays realistic.
+  Visibility of the grid and the plate is a **single `Show` control** in the Grid section — a `Show`
+  label with two checkboxes, **Grid** (`#ckGrid`, `showGrid`) and **Baseplate** (`#ckPlate`,
+  `showPlate`) — so either or both can be turned off (there is no longer any state where you can't hide
+  both). Unchecking **Baseplate** hides the plate for a clean chart-style view (tiles on white); when the
+  plate is showing, the internal cell lines are suppressed (studs mark the grid) and when it is hidden the
+  cell lines return, so empty cells stay legible. Hiding the plate dims the color swatches (nothing to
+  color). `syncShow()` reflects `showGrid`/`showPlate` back onto both checkboxes (used on load and at
+  startup). Do NOT reintroduce the old separate `bShowGrid`/`bShowPlate` buttons.
 - The workspace is **pinned to the viewport** (body flex column, 100vh, overflow hidden); the panel
   scrolls internally if tall — no page scroll.
 - **Save + Open** (menu bar, `bSave` / `bOpen`, added 2026-07-24). `saveProject()` serializes the whole
