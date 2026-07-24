@@ -166,7 +166,15 @@ date convention as Sangala Studio; bump it on any shipped change.
   baseplate, show-grid/plate/transparent flags, options, and paint color. **Save uses the SAME method as
   Sangala Studio: `window.showSaveFilePicker` (native Save As — the user picks folder + name), with a
   plain-download fallback only where that API is missing.** Do NOT revert Save to a bare `a.download`; the
-  auto-dump to Downloads was a defect Glen flagged ("removing control from the user"). `loadProject()`
+  auto-dump to Downloads was a defect Glen flagged ("removing control from the user"). **Clicking Save opens
+  a small popup menu (`#saveMenu`, `.popmenu`) with two choices: _Project_ (`.mosaic`, `saveProject()`) and
+  _Image_ (`.png` / `.jpg`, `saveImage()`).** _Image_ is disabled until a mosaic is built. `saveImage()`
+  renders JUST the mosaic to a fresh offscreen canvas via `mosaicImageCanvas()` (a print-friendly ~1600 px
+  max side; reuses `getPlate` and the exact `drawBuilt` tile styling) and writes it through the same
+  `showSaveFilePicker`; the picker's type dropdown offers PNG and JPEG and the chosen extension picks the
+  encoding. The image honors the **Baseplate** toggle (plate behind if shown, else a **transparent** PNG /
+  white JPEG); grid lines, labels and the outline are editing aids and are deliberately left out of the
+  saved picture. `loadProject()`
   restores all of it, re-loading each embedded photo (async, order preserved) and re-running `removeBg` for
   layers that had it. **There is ONE Open, not a separate Load** (`bLoad`/`#projfile` were removed): the
   Open input accepts photos AND `.mosaic`/`.json`, and `openFile()` dispatches by name/type — a project
