@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.60 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.61 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -263,7 +263,7 @@
          one to the nearest - but they are the tiles the student actually has, so they are not mixed into the
          standard 27. -->
     <div id="photoset" style="display:none;margin-top:.55rem">
-      <div style="font-size:.8rem;font-weight:700;color:#5a4a34">My Tiles <span id="photocount" style="font-weight:400;color:#8a7a5c"></span></div>
+      <div style="font-size:.8rem;font-weight:700;color:#5a4a34">Custom Tiles <span id="photocount" style="font-weight:400;color:#8a7a5c"></span></div>
       <div id="swphoto" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.35rem"></div>
     </div>
     <div id="stdsetlabel" style="display:none;font-size:.8rem;font-weight:700;color:#5a4a34;margin-top:.55rem">Standard Tiles</div>
@@ -973,7 +973,7 @@
     const paintMode=(activeTool==="paint"||activeTool==="pick"||activeTool==="erase");
     const recolor = !!(built && tileTool() && (selCells.size || (selMass && massById(selMass))));
     const nOwn=PALETTE.filter(q=>q.own).length;
-    const swAll=[...$("swphoto").children, ...$("swatches").children];   // both sets: My tiles and Standard
+    const swAll=[...$("swphoto").children, ...$("swatches").children];   // both sets: Custom Tiles and Standard
     swAll.forEach(s=>{ const i=+s.dataset.i, p=PALETTE[i];
       // Outside the ownership editor the palette shows ONLY the tiles you own. A color you dropped is gone,
       // not sitting there slashed - that was clutter. The full set of 27 appears only inside the editor,
@@ -1048,20 +1048,20 @@
       found.set(i,share);
     }
     if(!found.size){ $("status").textContent="No clear tile colors in that photo — try a closer, evenly lit shot."; return; }
-    // The reading builds MY TILES - its own set, kept apart from the standard 27 rather than mixed into
+    // The reading builds CUSTOM TILES - its own set, kept apart from the standard 27 rather than mixed into
     // them. A second photo widens that set; Clear empties it; Reset starts over.
     const added=[...found.keys()].filter(i=>!PALETTE[i].fromPhoto);
     [...found.keys()].forEach(i=>{ PALETTE[i].fromPhoto=true; PALETTE[i].own=true; });
-    // What was read shows in My tiles itself, so there is no separate report panel - it said the same thing
+    // What was read shows in Custom Tiles itself, so there is no separate report panel - it said the same thing
     // twice. The status line carries the part the swatches cannot: the names, and what was ignored.
     const ranked=[...found.entries()].sort((a,b)=>b[1]-a[1]);
     // Deliberately NOT switching into the ownership editor: landing there left every later click able to drop
     // a color. The reading is reported instead, and the editor is entered on purpose or not at all.
-    buildSwatches(); render();                                    // regroup: the read colors move into My tiles
+    buildSwatches(); render();                                    // regroup: the read colors move into Custom Tiles
     const names=ranked.map(e=>PALETTE[e[0]].name);
     $("status").textContent = names.length+" tile color"+(names.length!==1?"s":"")+" read from the photo: "+names.join(", ")
       + (bgName?" (the "+bgName.toLowerCase()+" surface behind them was ignored)":"")
-      + ". "+(added.length?added.length+" added to My tiles. ":"")+"They are kept as their own set, apart from the standard colors. Clear empties the set; Reset starts over.";
+      + ". "+(added.length?added.length+" added to Custom Tiles. ":"")+"They are kept as their own set, apart from the standard colors. Clear empties the set; Reset starts over.";
   }
   // No second Open: the photo of your tiles arrives the ordinary way - Open, drag, or paste - and this reads
   // the one in the workspace. The selected image if there is one, otherwise the frontmost.
@@ -1512,11 +1512,11 @@
   $("bGroup").onclick=()=>{ if(selCells.size && selMass && massById(selMass)) updateMass(selMass); else groupSelection(); };
   $("bOwnMode").onclick=()=>setOwnMode(!ownMode);
   $("bOwnNone").onclick=()=>{ PALETTE.forEach(p=>{ p.own=false; p.fromPhoto=false; }); buildSwatches(); render();
-    $("status").textContent="Cleared — no tiles owned, and My tiles is empty. Read your tiles from a photo, or press Edit to pick them. Reset starts over."; };
+    $("status").textContent="Cleared — the palette and Custom Tiles are both empty. Add Tile Colors in a Photo, or press Edit to pick colors. Reset starts over."; };
   // Reset means the starting state, which is also what "own every color" would have meant - so there is no
   // separate Own all button. One button, one meaning.
   $("bOwnReset").onclick=()=>{ PALETTE.forEach(p=>{ p.own=true; p.fromPhoto=false; }); buildSwatches(); render();
-    $("status").textContent="Reset — every color owned and My tiles empty, as it starts out."; };
+    $("status").textContent="Reset — the standard palette is back and Custom Tiles is empty, as it starts out."; };
   $("bDesel").onclick=()=>{ clearSel(); selMass=0; renderMasses(); render(); $("status").textContent="Deselected."; };
   // Fit to photo: lay the grid over a photo instead of dragging it there by hand. The frame keeps the grid's
   // own shape (gW:gH), so the tiles stay square, and takes the largest area of that shape that fits inside
