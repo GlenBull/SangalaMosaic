@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morning Review — Mosaic to Relief</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; background: #fdfdfb;
+         max-width: 860px; margin: 0 auto; padding: 24px 20px 60px; line-height: 1.45; }
+  h1 { font-size: 1.6em; margin: 0 0 2px; }
+  .date { color: #666; margin: 0 0 24px; font-size: 0.95em; }
+  h2 { font-size: 1.2em; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin: 34px 0 10px; }
+  ul { margin: 6px 0 6px 22px; padding: 0; }
+  li { margin: 4px 0; }
+  figure { margin: 22px 0; }
+  figure img { max-width: 100%; height: auto; display: block; border: 1px solid #ddd; }
+  figcaption { font-style: italic; font-size: 0.92em; color: #333; margin-top: 5px; text-align: center; }
+  .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .gallery figure { margin: 0; }
+  .gallery figcaption { font-size: 0.85em; }
+  .file { margin: 12px 0; }
+  .file code { font-family: Consolas, monospace; font-size: 0.82em; background: #f2f2ee;
+               padding: 1px 4px; word-break: break-all; }
+  .caveat { background: #fff8e6; border-left: 3px solid #d9a400; padding: 8px 12px; margin: 14px 0; }
+  p { margin: 8px 0; }
+  @media (max-width: 560px) { .gallery { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>Morning Review — Mosaic to Relief</h1>
+<p class="date">Overnight run, July 25, 2026. Five minutes; everything below is in this folder.</p>
+
+<h2>Decided tonight</h2>
+<ul>
+  <li>Masses are drawn with Studio's Pen tool, traced free. Snap-to-grid is dead — at 8 mm the crane's legs collapse into crumbs.</li>
+  <li>The tracing surface is the .mosaic in Mosaic's Transparent view — the photo showing through the tiles.</li>
+  <li>The ladder is mosaic, then relief, then deep relief. "In the round" is the physical brick build, not a software rung.</li>
+  <li>The brick vocabulary returns as a display-only 8 mm Stud Grid lattice, not as snapping.</li>
+  <li>Six masses is the right count for the crane. Four merges crown, head, and bill into one blob — the bird is gone.</li>
+  <li>About 14 mm of spread reads as relief, about 22 as deep relief; past about 36 a chained figure shears apart. (A nested figure like the buffalo has no such ceiling.)</li>
+  <li>Walls stay smooth. Plate seams read as laminated cardstock and brick seams as stray scratches; what reads as LEGO is studs on the 8 mm grid, and the print cannot show a seam anyway — same solid, 2.5x the triangles.</li>
+</ul>
+
+<h2>The evidence, in order</h2>
+
+<figure>
+  <img src="crane-deep-relief_mock.png" alt="Crane deep relief: plan, 3D, and depth ladder">
+  <figcaption>The destination: six free-traced masses at 22 mm — the crane reads at a glance, and the ladder shows every depth a student would set.</figcaption>
+</figure>
+
+<figure>
+  <img src="crane-4part_mock.png" alt="Crane with four merged masses">
+  <figcaption>Why six masses and not four: merging crown+head+bill turns the crane's head into a blob — the bill and crest vanish.</figcaption>
+</figure>
+
+<figure>
+  <img src="bsheet_onecolor.png" alt="Buffalo one-color silhouettes at three mass counts">
+  <figcaption>The buffalo breaks the crane recipe: head-on, the silhouette is a blob under an awning at any mass count — the problem is pose, not roundness.</figcaption>
+</figure>
+
+<figure>
+  <img src="bVERDICT.png" alt="Buffalo: anatomy tracing vs nested tonal tracing">
+  <figcaption>The fix: trace the mosaic's light-inside-dark tones instead of anatomy, and add the two one-tile eyes — A is a lump, B is a bovine.</figcaption>
+</figure>
+
+<figure>
+  <img src="sheet_platestack_studs.png" alt="Crane relief with stud overlay">
+  <figcaption>What actually reads as LEGO: studs on the 8 mm grid flip it instantly — plate seams never did — and they show where the free outline slices a stud in half.</figcaption>
+</figure>
+
+<figure>
+  <img src="camera-note_mock.png" alt="Studio default camera vs orbited camera">
+  <figcaption>Before opening the .model files: Studio's default camera shows the relief head-down — orbit a half turn and the bird stands up.</figcaption>
+</figure>
+
+<h2>More, if wanted</h2>
+<div class="gallery">
+  <figure>
+    <img src="buffalo-deep-relief_mock.png" alt="Buffalo deep relief, nested tonal masses, real tile colors">
+    <figcaption>The best 3D buffalo: 11 nested tonal masses, real tile colors, eyes present. A horned bovine facing you — generic, not yet Cape (horn tips and ears did not survive 32x32).</figcaption>
+  </figure>
+  <figure>
+    <img src="buffalo-six-anatomical_mock.png" alt="Buffalo built by the crane method">
+    <figcaption>Its failure half: the crane method as-is — no eyes, muzzle lost in the head. Only meaningful next to the one on the left.</figcaption>
+  </figure>
+  <figure>
+    <img src="b_plain.png" alt="The buffalo mosaic itself">
+    <figcaption>The mosaic itself — the most charming buffalo image in the set. It reads better than every 3D treatment of it.</figcaption>
+  </figure>
+  <figure>
+    <img src="depth_ladder.png" alt="Distinct depths surviving under plate and brick quantization">
+    <figcaption>The quantization cost, legibly: at 22 mm, 3.2 mm plates keep 5 of 7 crane depths; 9.6 mm bricks keep 3, and only 2 at the 14 mm rung.</figcaption>
+  </figure>
+  <figure>
+    <img src="ANSWER_platestack.png" alt="Smooth vs plate-stack vs brick-stack, table distance and zoom">
+    <figcaption>Smooth vs plates vs bricks: identical at table distance (top row); at zoom the seams read as laminated cardstock, not brickwork.</figcaption>
+  </figure>
+  <figure>
+    <img src="crane-ladder_mock.png" alt="Four crane variants side by side">
+    <figcaption>The four crane files side by side. Only the 4-part panel visibly differs — the gold head blob.</figcaption>
+  </figure>
+</div>
+
+<h2>Files you can open in Studio now</h2>
+<p>All seven are in this folder, validated field-by-field against openProject/restoreState. Each opens in 3D mode with every mass a loose polygon carrying its own editable Depth and Base.</p>
+
+<div class="file"><code>C:\Users\glenb\AppData\Local\Temp\claude\D--Code-Projects-Silhouette-Tools\007867cf-5607-4290-b0ca-6ecdbe62cf01\scratchpad\morning\crane-relief.model</code><br>
+The crane at the relief rung: 7 polygons, 14 mm spread (depths 3.0 to 17.0 mm).</div>
+
+<div class="file"><code>C:\Users\glenb\AppData\Local\Temp\claude\D--Code-Projects-Silhouette-Tools\007867cf-5607-4290-b0ca-6ecdbe62cf01\scratchpad\morning\crane-deep-relief.model</code><br>
+The same six masses at the deep-relief rung, 22 mm spread (3.0 to 25.0 mm). The headline file.</div>
+
+<div class="file"><code>C:\Users\glenb\AppData\Local\Temp\claude\D--Code-Projects-Silhouette-Tools\007867cf-5607-4290-b0ca-6ecdbe62cf01\scratchpad\morning\crane-4part.model</code><br>
+The four-mass merge, for contrast. Open beside the one above to see the head go.</div>
+
+<div class="file"><code>C:\Users\glenb\AppData\Local\Temp\claude\D--Code-Projects-Silhouette-Tools\007867cf-5607-4290-b0ca-6ecdbe62cf01\scratchpad\morning\crane-plates.model</code><br>
+Deep relief with every depth snapped to 3.2 mm plates. Seven masses land on five distinct heights — body merges with the far leg, wings with the near leg.</div>
+
+<div class="file"><code>C:\Users\glenb\AppData\Local\Temp\claude\D--Code-Projects-Silhouette-Tools\007867cf-5607-4290-b0ca-6ecdbe62cf01\scratchpad\morning\buffalo-deep-relief.model</code><br>
+Moses's buffalo, 11 nested tonal masses at 22 mm, including the two one-tile eyes.</div>
+
+<div class="file"><code>C:\Users\glenb\AppData\Local\Temp\claude\D--Code-Projects-Silhouette-Tools\007867cf-5607-4290-b0ca-6ecdbe62cf01\scratchpad\morning\buffalo-relief.model</code><br>
+The same masses at 14 mm — which reads better head-on.</div>
+
+<div class="file"><code>C:\Users\glenb\AppData\Local\Temp\claude\D--Code-Projects-Silhouette-Tools\007867cf-5607-4290-b0ca-6ecdbe62cf01\scratchpad\morning\buffalo-six-anatomical.model</code><br>
+The crane method applied to the buffalo, unchanged — the instructive failure. Open beside buffalo-relief.</div>
+
+<div class="caveat">
+<p><b>One caveat.</b> Every outline in these files is a red cut line, so if you switch to 2D and press Make It, all of them go to the die cutter. Stay in 3D (they open there). The real mosaic importer needs to mark such masses 3D-only.</p>
+<p>Two smaller notes: the default 3D camera shows the figures head-down — orbit about a half turn in yaw (see the camera image above). And the 3D preview colors come from Studio's fixed piece palette; the tile colors you stored show in the plan view and Print, not in 3D.</p>
+</div>
+
+<h2>Still yours to decide</h2>
+<ul>
+  <li>The buffalo is 231 x 178 mm at 8 mm per cell — wider than the Portrait 3's 203 mm mat and Jo's 180 mm print bed. Re-pose, shrink the grid, or call it a Cameo 2 design?</li>
+  <li>Does the chapter teach the head-on fix (trace nested tones, add the eyes), or tell students to crop their animal in profile like the crane?</li>
+  <li>Snap the Depth field to 3.2 mm plates as an option? It is a near-zero change (the field's step plus a round) and puts the brick vocabulary in the number — at the cost of two of the crane's seven depths.</li>
+  <li>Add a stud overlay on the relief's top faces? It is what reads as LEGO, and it shows a student where the free trace slices a stud in half before the physical build.</li>
+  <li>Horns: wait for per-edge slope / cone so a horn is one sloped mass instead of a plank? Studio already owns the instrument (roofTris).</li>
+  <li>Should grouping the paired parts (the two legs) be part of the recipe, or stay loose so each keeps its own Depth field?</li>
+</ul>
+
+<h2>The buffalo verdict</h2>
+<p>The method survives the round animal, but not unchanged, and the reason is not the one we expected. What broke the crane recipe was pose, not roundness: Moses framed the buffalo head-on, and head-on an outline carries almost no species — anatomical masses gave stacked boxes at every depth from 0 to 36 mm. The fix is a different tracing instruction: trace the mosaic's tones, light core inside dark rim, and add the two eyes — each a single 8 mm tile, and decisive. Three corrections to last night's numbers, all from looking: nested masses have no shear ceiling (the ~36 mm limit is a property of the chained crane); shallower is better head-on, 8–14 mm beating 22; and depth ordering there is a constraint, not an expressive dimension — wrong order destroys the face, right order barely beats a flat plate. The one defeat is the horns, which extrude as planks and want a slope, not more masses. And a fact worth saying plainly: the flat mosaic reads better than every 3D treatment of it — the head-on animal wants more nested masses at less depth, not more depth.</p>
+
+</body>
+</html>
