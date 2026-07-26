@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.71 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.72 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -246,6 +246,13 @@
     <h2 class="marker sub">Baseplate</h2>
     <div class="hint" style="margin-top:0">The plate the tiles sit on.</div>
     <div id="baseplates" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.4rem"></div>
+
+    <h2 class="marker sub">Medium</h2>
+    <div class="hint" style="margin-top:0">How the mosaic is drawn — LEGO tiles, or beads (a woven-bead tradition in many parts of Africa).</div>
+    <div class="two" style="margin-top:.4rem">
+      <button class="ebtn on" id="bMedTiles" title="Square LEGO tiles on a studded baseplate">Tiles</button>
+      <button class="ebtn" id="bMedBeads" title="Round beads on a tray — the Baseplate color is the tray">Beads</button>
+    </div>
     </div><!-- /setup -->
 
     <!-- Just "Palette" — not "Your Tiles": a student may design first and buy the tiles later
@@ -311,6 +318,7 @@
   let showBox = true;     // the outline (bounding box) around the mosaic area
   let seeThrough = false; // translucent mosaic: the source photo shows through the tiles
   let seeAlpha = 0.45;    // tile opacity in Transparent mode; the Transparency slider sets it
+  let medium = "tiles";   // "tiles" = square LEGO tiles on a studded baseplate; "beads" = round beads on a tray
   let built = null;   // the computed mosaic — a snapshot that lives in the grid; only Build (re)makes it
   let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick/Erase
   let undoStack = [], redoStack = [], curStroke = null;   // paint-edit history: each entry is one stroke's per-cell {before,after}
@@ -403,7 +411,7 @@
         ctx.save(); ctx.globalAlpha=seeAlpha; drawBuilt(frame, true); ctx.restore();
         drawFrame(frame, false);
       } else {
-        drawBuilt(); drawFrame(frame, showPlate);                        // solid mosaic on its baseplate, drawn in the grid
+        drawBuilt(); drawFrame(frame, showPlate && medium!=="beads");    // solid mosaic; a bead tray has no studs, so cell lines may show
       }
       if(tileTool() || selMass || selCells.size) drawMasses(frame);       // outlines only while selecting/grouping, so the mosaic reads normally otherwise
     } else {
@@ -613,7 +621,7 @@
     const proj={ app:"Sangala Mosaic", v:1, grid:{gw:gW(),gh:gH()}, frame,
       layers: layers.map(L=>({ src:imgToDataURL(L.img), x:L.x, y:L.y, w:L.w, h:L.h, bgRemoved:!!L.bgRemoved })),
       built, palette:PALETTE.map(p=>!!p.own), myTiles:PALETTE.map(p=>!!p.fromPhoto),
-      baseIdx, showPlate, showGrid, showBox, seeThrough, seeAlpha, paintColor,
+      baseIdx, showPlate, showGrid, showBox, seeThrough, seeAlpha, medium, paintColor,
       // masses ride OUTSIDE built, exactly as they do in memory, so a re-map at the same grid size keeps them
       masses, massSeq, grp: grp?Array.from(grp):null, grpW, grpH,
       opts:{ ignoreBg:$("optIgnoreBg").checked, colors:$("optColors").value, clean:$("optClean").checked,
@@ -647,10 +655,22 @@
     const cvx=document.createElement("canvas"); cvx.width=gL+W; cvx.height=gT+H;
     const g=cvx.getContext("2d");
     if(opaque){ g.fillStyle="#ffffff"; g.fillRect(0,0,cvx.width,cvx.height); }   // JPEG can't be transparent
-    if(showPlate) g.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,W,H),ox,oy,W,H);   // studded plate behind
+    if(showPlate){
+      if(medium==="beads"){ g.fillStyle="rgb("+BASEPLATE[baseIdx].rgb.join(",")+")"; g.fillRect(ox,oy,W,H); }   // the tray: plain, no studs
+      else g.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,W,H),ox,oy,W,H);          // studded plate behind
+    }
     const inset=Math.max(0.5, cell*0.05);
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
       const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;
+      if(medium==="beads"){                                                            // a round bead in the cell
+        const cx=ox+(c+0.5)*cell, cy=oy+(r+0.5)*cell, rad=cell*0.46;
+        g.fillStyle="rgb("+col.join(",")+")";
+        g.beginPath(); g.arc(cx,cy,rad,0,6.2832); g.fill();
+        g.lineWidth=1; g.strokeStyle="rgba(0,0,0,0.30)"; g.stroke();
+        g.fillStyle="rgba(255,255,255,0.35)";
+        g.beginPath(); g.arc(cx-rad*0.35, cy-rad*0.38, rad*0.28, 0, 6.2832); g.fill();
+        continue;
+      }
       const x=ox+c*cell+inset, y=oy+r*cell+inset, w=cell-2*inset, h=cell-2*inset;
       g.fillStyle="rgba(0,0,0,0.22)"; g.fillRect(x+1.2,y+1.6,w,h);                   // drop shadow -> raised
       g.fillStyle="rgb("+col.join(",")+")"; g.fillRect(x,y,w,h);                     // the tile
@@ -659,7 +679,7 @@
       g.strokeStyle="rgba(0,0,0,0.25)";
       g.beginPath(); g.moveTo(x+w-0.5,y+0.5); g.lineTo(x+w-0.5,y+h-0.5); g.lineTo(x+0.5,y+h-0.5); g.stroke();
     }
-    if(showGrid && !showPlate){                                                  // cell lines - shown when the plate is hidden (studs mark the grid otherwise)
+    if(showGrid && (!showPlate || medium==="beads")){                            // cell lines - shown unless LEGO studs already mark the grid
       g.lineWidth=1; g.strokeStyle="rgba(45,45,55,0.32)"; g.beginPath();
       for(let i=1;i<gw;i++){ const x=Math.round(ox+i*cell)+0.5; g.moveTo(x,oy); g.lineTo(x,oy+H); }
       for(let j=1;j<gh;j++){ const y=Math.round(oy+j*cell)+0.5; g.moveTo(ox,y); g.lineTo(ox+W,y); }
@@ -734,6 +754,9 @@
     showPlate=p.showPlate!==false; showGrid=p.showGrid!==false; showBox=p.showBox!==false; seeThrough=!!p.seeThrough; paintColor=p.paintColor||1;
     seeAlpha=(typeof p.seeAlpha==="number" && p.seeAlpha>0 && p.seeAlpha<1)?p.seeAlpha:0.45;
     $("optSee").value=Math.round(100*(1-seeAlpha));
+    medium=(p.medium==="beads")?"beads":"tiles";
+    $("bMedTiles").classList.toggle("on", medium==="tiles");
+    $("bMedBeads").classList.toggle("on", medium==="beads");
     syncShow();
     frame=p.frame||null; built=p.built||null; setTool("select");
     if(built && !built.src){                                        // an older save: every tile is its own source
@@ -1578,10 +1601,24 @@
     // flat = the Transparent overlay: plain translucent color, NO plate, NO shadow, NO bevel strokes.
     // A 32x32 lattice of per-tile shadows dimmed the photo underneath into invisibility (Glen, 2026-07-26).
     const f=rect||frame, gw=built.gw, gh=built.gh, idx=built.idx, cw=f.w/gw, ch=f.h/gh;
-    if(showPlate && !flat) ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
+    if(showPlate && !flat){
+      if(medium==="beads"){ ctx.fillStyle="rgb("+BASEPLATE[baseIdx].rgb.join(",")+")"; ctx.fillRect(f.x,f.y,f.w,f.h); }   // the tray: a plain card, no studs
+      else ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
+    }
     const inset=Math.max(0.5, Math.min(cw,ch)*0.05);                                     // thin seam between tiles
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
       const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;
+      if(medium==="beads"){                                                              // a round bead in the cell
+        const cx=f.x+(c+0.5)*cw, cy=f.y+(r+0.5)*ch, rad=Math.min(cw,ch)*0.46;
+        ctx.fillStyle="rgb("+col.join(",")+")";
+        ctx.beginPath(); ctx.arc(cx,cy,rad,0,6.2832); ctx.fill();
+        if(!flat){
+          ctx.lineWidth=1; ctx.strokeStyle="rgba(0,0,0,0.30)"; ctx.stroke();             // rim
+          ctx.fillStyle="rgba(255,255,255,0.35)";                                        // glass highlight
+          ctx.beginPath(); ctx.arc(cx-rad*0.35, cy-rad*0.38, rad*0.28, 0, 6.2832); ctx.fill();
+        }
+        continue;
+      }
       const x=f.x+c*cw+inset, y=f.y+r*ch+inset, w=cw-2*inset, h=ch-2*inset;
       if(flat){ ctx.fillStyle="rgb("+col.join(",")+")"; ctx.fillRect(x,y,w,h); continue; }
       ctx.fillStyle="rgba(0,0,0,0.22)"; ctx.fillRect(x+1.2,y+1.6,w,h);                   // drop shadow -> raised
@@ -1627,6 +1664,17 @@
   $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough;
     $("status").textContent = seeThrough ? "Transparent: the photo shows through the translucent tiles. Toggle it off for solid tiles." : "Solid tiles."; render(); };
   $("bChart").onclick = printMosaic;
+  function setMedium(m){
+    medium=(m==="beads")?"beads":"tiles";
+    $("bMedTiles").classList.toggle("on", medium==="tiles");
+    $("bMedBeads").classList.toggle("on", medium==="beads");
+    render();
+    $("status").textContent = medium==="beads"
+      ? "Beads — round beads on a tray. The Baseplate color is the tray."
+      : "Tiles — square LEGO tiles on a studded baseplate.";
+  }
+  $("bMedTiles").onclick=()=>setMedium("tiles");
+  $("bMedBeads").onclick=()=>setMedium("beads");
   // Slider reads as "how transparent": more = more photo, so tile opacity is the complement.
   $("optSee").addEventListener("input", ()=>{ seeAlpha=1-(+$("optSee").value)/100; render(); });
   // One undoable step: every filled cell -> empty. Photos, palette, grid, and masses are untouched,
