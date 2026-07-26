@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.62 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.63 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1009,7 +1009,8 @@
   // and glare also snap to odd colors, but they form 1-px chains and scattered specks, never solid blocks.
   function ownFromPhoto(im){
     const S=280;                                                  // one tile of a 32-wide mosaic ≈ 4 px here
-    const w=Math.max(2,Math.min(S,im.naturalWidth)), h=Math.max(2,Math.round(w*im.naturalHeight/im.naturalWidth));
+    const iw=im.naturalWidth||im.width, ih=im.naturalHeight||im.height;   // a background-removed layer is a CANVAS: no naturalWidth
+    const w=Math.max(2,Math.min(S,iw)), h=Math.max(2,Math.round(w*ih/iw));
     const off=document.createElement("canvas"); off.width=w; off.height=h;
     const o=off.getContext("2d"); o.drawImage(im,0,0,w,h);
     const d=o.getImageData(0,0,w,h).data;
