@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-24.50 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.51 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -145,9 +145,13 @@
   <!-- (2) LEFT TOOL RAIL -->
   <div class="ltools">
     <div class="ltitle marker">Tools</div>
+    <!-- the same arrow Sangala Studio uses for Select, so the two tools look alike as well as behave alike -->
+    <button class="ltbtn on" id="tSelect" title="Select / move (normal mode) — click a mass to reselect its tiles, or pick up the photo or the grid"><svg width="21" height="21" viewBox="0 0 24 24" style="display:block" aria-hidden="true"><path d="M5.5 3.2 L5.5 20.5 L9.8 16.5 L12.5 22.5 L15 21.3 L12.3 15.5 L18.2 15.5 Z" fill="#fff" stroke="#5a2f10" stroke-width="1.7" stroke-linejoin="round"/></svg><small>Select</small></button>
     <button class="ltbtn" id="tPaint" title="Paint: after Build, click or drag cells to set their color by hand (Ctrl+Z undoes)">🖌️<small>Paint</small></button>
     <button class="ltbtn" id="tPick"  title="Pick: click a cell to grab its color to paint with">💧<small>Pick</small></button>
     <button class="ltbtn" id="tErase" title="Erase: after Build, click or drag cells to clear them back to empty (Ctrl+Z undoes)">🧽<small>Erase</small></button>
+    <button class="ltbtn" id="tTiles" title="Select tiles: drag a box to select the tiles inside it, whatever color they are. Shift-click a tile to add or drop it; Alt removes; Ctrl-D deselects">⬚<small>Tiles</small></button>
+    <button class="ltbtn" id="tWand"  title="Magic wand: click a tile to select the whole connected run of that color. Shift adds, Alt removes, Ctrl-D deselects">🪄<small>Wand</small></button>
   </div>
 
   <!-- (3) WORKSPACE / MAT -->
@@ -176,6 +180,22 @@
       </div>
       <button class="ebtn" id="lBg" title="Make this image's plain background transparent, so the layers behind show through" style="width:100%;margin-top:.5rem">Remove background</button>
       <button class="ebtn" id="lDel" title="Remove this image (or press the Delete key)" style="width:100%;margin-top:.35rem">Remove image</button>
+    </div>
+
+    <!-- Masses sits HIGH and appears only while it is wanted (same pattern as "Selected image" above):
+         while grouping, this is the information the student is reading, so it must not be a scroll away. -->
+    <div id="masspanel" style="display:none;margin-top:.6rem;border-top:1px solid #d8c4a0;padding-top:.5rem">
+      <h2 class="marker sub" style="margin-top:0">Masses — the parts of your animal</h2>
+      <div class="hint" id="masshint" style="margin-top:0">Select tiles with the Tiles box or the Wand, then
+        Group them into a mass — the head, a wing, a leg. <b>Shift-click a tile to add it, or to drop it if it
+        is already selected.</b> Shift-drag adds a box, Alt removes, Ctrl-D deselects everything. With tiles
+        selected, click a palette color to recolor them all at once.</div>
+      <div id="selinfo" style="margin-top:.45rem;font-size:.85rem;color:#5a4a34"></div>
+      <div class="two" style="margin-top:.35rem">
+        <button class="ebtn" id="bGroup" title="Make the selected tiles into one named mass">Group</button>
+        <button class="ebtn" id="bDesel" title="Deselect (Ctrl-D)">Deselect</button>
+      </div>
+      <div id="masslist" style="margin-top:.5rem"></div>
     </div>
 
     <h2 class="marker sub">Grid</h2>
@@ -249,6 +269,18 @@
   let built = null;   // the computed mosaic — a snapshot that lives in the grid; only Build (re)makes it
   let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick/Erase
   let undoStack = [], redoStack = [], curStroke = null;   // paint-edit history: each entry is one stroke's per-cell {before,after}
+  // ---- masses: the parts of the animal (head, wing, leg), each a named set of cells ----
+  // Deliberately held OUTSIDE `built`: build() reassigns `built` wholesale (see build(), "built={gw,gh,idx,counts}")
+  // and every Options slider re-runs build() on a live mosaic, so anything stored inside it would vanish when a
+  // student nudged Colors. Keyed by cell index r*gw+c, which survives a re-map at the same grid size.
+  let grp = null;        // Int32Array of mass ids per cell, 0 = ungrouped
+  let grpW = 0, grpH = 0;  // the grid `grp` was made for; a grid-size change invalidates it
+  let masses = [];       // [{id, name}] in creation order
+  let massSeq = 0, selMass = 0;
+  // Selecting tiles and grouping them are separate steps, as they are in Sangala Studio: the Tiles box and
+  // the Wand are two different tools that both build ONE live selection; Group then turns it into a mass.
+  let selCells = new Set();   // cell keys r*grpW+c currently selected
+  let gdrag = null;           // active marquee: {r0,c0,r,c,mode:"replace"|"add"|"remove"}
 
   const gW = () => Math.max(1, Math.round(+$("gW").value)||32);
   const gH = () => Math.max(1, Math.round(+$("gH").value)||32);
@@ -328,6 +360,7 @@
       } else {
         drawBuilt(); drawFrame(frame, showPlate);                        // solid mosaic on its baseplate, drawn in the grid
       }
+      if(tileTool() || selMass || selCells.size) drawMasses(frame);       // outlines only while selecting/grouping, so the mosaic reads normally otherwise
     } else {
       drawFrame(frame);                                                   // just the grid over the photos
     }
@@ -368,6 +401,30 @@
     return null;
   }
   cv.addEventListener("mousedown", e=>{
+    if(tileTool()){
+      if(!built) return;
+      const cel=cellAt(pt(e));
+      if(!cel){                                                 // clicked off the mosaic entirely -> deselect
+        if(selCells.size || selMass){ clearSel(); selMass=0; renderMasses(); render(); $("status").textContent="Deselected."; }
+        return;
+      }
+      ensureGrp();
+      const mode = e.altKey ? "remove" : (e.shiftKey ? "add" : "replace");
+      if(activeTool==="wand"){                                  // magic wand: the connected run of one color
+        if(built.idx[cel.r][cel.c]<0){                           // an empty cell is "off" too
+          if(!e.shiftKey && !e.altKey && (selCells.size||selMass)){ clearSel(); selMass=0; renderMasses(); render(); $("status").textContent="Deselected."; }
+          else $("status").textContent="That cell is empty — click a tile.";
+          return;
+        }
+        applySel(regionFrom(cel.r, cel.c, null), mode);
+        renderMasses(); render();
+        const sb=selBox();
+        $("status").textContent = sb.n+" tile"+(sb.n>1?"s":"")+" selected ("+sb.w+" × "+sb.h+" studs). Shift-click adds another run, then press Group.";
+        e.preventDefault(); return;
+      }
+      gdrag={ r0:cel.r, c0:cel.c, r:cel.r, c:cel.c, mode };      // Tiles: a marquee
+      render(); e.preventDefault(); return;
+    }
     if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){
       if(!built) return;
       const cel=cellAt(pt(e)); if(!cel) return;
@@ -375,6 +432,22 @@
       painting=true; eraseMode=(activeTool==="erase"||e.button===2); lastCell=cel; curStroke=new Map();   // record this stroke for undo
       if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render();
       e.preventDefault(); return;
+    }
+    // Select picks up existing things, and a mass IS one: clicking a grouped tile reselects that mass. It has
+    // to beat the frame's interior grab below, because a mass is the more specific target under the pointer.
+    if(activeTool==="select" && built && grp && grpW===built.gw){
+      const cel=cellAt(pt(e));
+      const id = cel ? massOf(cel.r,cel.c) : 0;
+      if(id && loadMassIntoSel(id)){
+        sel=null; renderMasses(); render();
+        const m=massById(id), b=massBox(id);
+        $("status").textContent = m.name+" reselected: "+b.n+" tiles, "+b.w+" × "+b.h+" studs. Shift-click tiles to change it, then press Update mass. Ctrl-D deselects.";
+        e.preventDefault(); return;
+      }
+      if(selCells.size || selMass){                  // clicking off a selection deselects it, then behaves normally
+        clearSel(); selMass=0; renderMasses(); render();
+        $("status").textContent="Deselected.";
+      }
     }
     const p=pt(e), t=pick(p);
     if(!t){ if(sel){ sel=null; render(); } return; }
@@ -387,6 +460,8 @@
     render(); e.preventDefault();
   });
   window.addEventListener("mousemove", e=>{
+    if(gdrag){ const cel=cellAt(pt(e)); if(cel && (cel.r!==gdrag.r || cel.c!==gdrag.c)){ gdrag.r=cel.r; gdrag.c=cel.c; render(); } return; }
+    if(tileTool()){ cv.style.cursor = built?"crosshair":"default"; return; }
     if(painting){ const cel=cellAt(pt(e)); if(cel&&(!lastCell||cel.r!==lastCell.r||cel.c!==lastCell.c)){ lastCell=cel; if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render(); } return; }
     if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){ cv.style.cursor = built?"cell":"default"; return; }
     if(!drag){ const p=pt(e), t=pick(p); cv.style.cursor = !t?"default":(t.act==="resize"?CURS[t.corner]:"move"); return; }
@@ -400,7 +475,26 @@
     }
     render();
   });
-  window.addEventListener("mouseup", ()=>{ if(painting){ painting=false; commitStroke(); renderBOM(); return; } drag=null; });
+  window.addEventListener("mouseup", ()=>{
+    if(gdrag){
+      const g=gdrag; gdrag=null;
+      const box={ r0:Math.min(g.r0,g.r), r1:Math.max(g.r0,g.r), c0:Math.min(g.c0,g.c), c1:Math.max(g.c0,g.c) };
+      // The box selects EVERY tile inside it, whatever color: a mass is a part of the animal, and a bill can
+      // be three colors, so matching color would leave tiles behind. Color selection is the Wand's job.
+      // Shift-clicking ONE tile TOGGLES it - the convention people already know - so dropping a single tile
+      // from a selection needs no second modifier. Shift-dragging a box still only adds.
+      let mode=g.mode;
+      const single=(g.r===g.r0 && g.c===g.c0);
+      if(mode==="add" && single && selCells.has(g.r0*grpW+g.c0)) mode="remove";
+      applySel(cellsInBox(box), mode);
+      renderMasses(); render();
+      const sb=selBox();
+      $("status").textContent = sb.n
+        ? (sb.n+" tile"+(sb.n>1?"s":"")+" selected ("+sb.w+" × "+sb.h+" studs). Shift-click a tile to add or drop it. Press Group to make them a mass, or click a palette color to recolor them.")
+        : "Nothing selected. Ctrl-D deselects at any time.";
+      return;
+    }
+    if(painting){ painting=false; commitStroke(); renderBOM(); return; } drag=null; });
 
   // ---- add images (Open / drop). Each Open ADDS a layer, so a composite can be built up ----
   function visibleCenter(){                                        // center of the currently VISIBLE part of the canvas
@@ -458,6 +552,8 @@
     const proj={ app:"Sangala Mosaic", v:1, grid:{gw:gW(),gh:gH()}, frame,
       layers: layers.map(L=>({ src:imgToDataURL(L.img), x:L.x, y:L.y, w:L.w, h:L.h, bgRemoved:!!L.bgRemoved })),
       built, palette:PALETTE.map(p=>!!p.own), baseIdx, showPlate, showGrid, showBox, seeThrough, paintColor,
+      // masses ride OUTSIDE built, exactly as they do in memory, so a re-map at the same grid size keeps them
+      masses, massSeq, grp: grp?Array.from(grp):null, grpW, grpH,
       opts:{ ignoreBg:$("optIgnoreBg").checked, colors:$("optColors").value, clean:$("optClean").checked,
              contrast:$("optContrast").value, bright:$("optBright").value } };
     const blob=new Blob([JSON.stringify(proj)],{type:"application/json"});
@@ -556,6 +652,14 @@
     showPlate=p.showPlate!==false; showGrid=p.showGrid!==false; showBox=p.showBox!==false; seeThrough=!!p.seeThrough; paintColor=p.paintColor||1;
     syncShow();
     frame=p.frame||null; built=p.built||null; setTool("select");
+    grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0;          // masses, if the file has them
+    if(built && p.grp && p.grpW===built.gw && p.grpH===built.gh && p.grp.length===built.gw*built.gh){
+      grp=Int32Array.from(p.grp); grpW=p.grpW; grpH=p.grpH;
+      masses=Array.isArray(p.masses)?p.masses.map(m=>({id:m.id, name:m.name||("Mass "+m.id)})):[];
+      massSeq=p.massSeq||masses.reduce((a,m)=>Math.max(a,m.id),0);
+      pruneMasses();
+    }
+    renderMasses();
     const out=new Array(p.layers.length); let pending=p.layers.length;
     const done=()=>{ layers=out.filter(Boolean); sel=null; renderBOM(); render(); $("status").textContent="Opened your project — keep working."; };
     if(!pending){ layers=[]; done(); return; }
@@ -654,6 +758,13 @@
     if(typing) return;
     if((e.ctrlKey||e.metaKey) && (e.key==="z"||e.key==="Z")){ e.shiftKey?redo():undo(); e.preventDefault(); return; }   // undo / redo paint edits
     if((e.ctrlKey||e.metaKey) && (e.key==="y"||e.key==="Y")){ redo(); e.preventDefault(); return; }
+    if((e.ctrlKey||e.metaKey) && (e.key==="d"||e.key==="D")){        // Ctrl-D always deselects, in every mode
+      e.preventDefault();
+      const had = selCells.size || selMass || sel;
+      clearSel(); selMass=0; sel=null; renderMasses(); render();
+      $("status").textContent = had ? "Deselected. Nothing is selected now." : "Nothing was selected.";
+      return;
+    }
     if((e.key==="Delete"||e.key==="Backspace") && sel && sel.kind==="layer"){
       layers=layers.filter(L=>L!==sel.obj); sel=null; render(); e.preventDefault();
     }
@@ -710,6 +821,19 @@
     PALETTE.forEach((p,i)=>{
       const s=document.createElement("div"); s.style.background="rgb("+p.rgb.join(",")+")";
       s.onclick=()=>{
+        if(built && selCells.size){                                     // one click recolors the whole selection
+          p.own=true; const n=recolorCells(selList(), i);
+          refreshSwatches(); renderMasses(); render();
+          $("status").textContent = n ? (n+" tile"+(n>1?"s":"")+" recolored "+p.name+". Ctrl+Z undoes.") : ("Those tiles were already "+p.name+".");
+          return;
+        }
+        if(built && tileTool() && selMass && massById(selMass)){         // or the selected mass, if nothing is selected
+          p.own=true; const m=massById(selMass), n=recolorCells(massCells(selMass), i);
+          refreshSwatches(); renderMasses(); render();
+          $("status").textContent = n ? (m.name+" is now "+p.name+" ("+n+" tile"+(n>1?"s":"")+" changed). Ctrl+Z undoes.")
+                                      : (m.name+" was already "+p.name+".");
+          return;
+        }
         if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){ paintColor=i; p.own=true; if(activeTool!=="paint") setTool("paint"); refreshSwatches(); }
         else { p.own=!p.own; refreshSwatches(); render(); }   // toggle ownership (rebuild to apply it to the mosaic)
       };
@@ -728,10 +852,26 @@
   // ---- Paint / Pick: hand-edit the built mosaic, tile by tile ----
   function setTool(t){
     activeTool=t;
+    $("tSelect").classList.toggle("on", t==="select");
     $("tPaint").classList.toggle("on", t==="paint"); $("tPick").classList.toggle("on", t==="pick"); $("tErase").classList.toggle("on", t==="erase");
-    if(t==="paint"||t==="pick"||t==="erase"){ cv.style.cursor="cell"; } else cv.style.cursor="default";
+    $("tTiles").classList.toggle("on", t==="tiles"); $("tWand").classList.toggle("on", t==="wand");
+    // A cell tool works on tiles, not on objects, so drop any object selection: its handles would otherwise
+    // sit there implying the photo is still grabbable, and clicks never reach the selection code in these modes.
+    if(t!=="select" && sel){ sel=null; }
+    if(tileTool()){ ensureGrp(); }
+    // Leaving the tile tools drops a half-made selection - but NOT for Select, which is how a mass is reselected.
+    if(!tileTool() && t!=="select") clearSel();
+    renderMasses();
+    if(t==="paint"||t==="pick"||t==="erase"){ cv.style.cursor="cell"; } else if(tileTool()){ cv.style.cursor=built?"crosshair":"default"; } else cv.style.cursor="default";
     refreshSwatches(); render();
-    if(t==="paint") $("status").textContent = built ? "Paint: pick a color below, then click or drag cells. Ctrl+Z undoes." : "Build a mosaic first — then Paint fixes it tile by tile.";
+    if(t==="select") $("status").textContent = "Select: click a mass to reselect its tiles, or click the photo or the grid to pick it up and drag it.";
+    else if(t==="tiles") $("status").textContent = built
+      ? "Select tiles: drag a box over the tiles you want, whatever color they are. Shift-click a tile to add it or drop it, Alt removes, Ctrl-D deselects. Then press Group."
+      : "Build a mosaic first — then select its tiles and group them into the parts of your animal.";
+    else if(t==="wand") $("status").textContent = built
+      ? "Magic wand: click a tile to select the whole connected run of that color. Shift adds another run, Alt removes, Ctrl-D deselects. Then press Group."
+      : "Build a mosaic first — then the Wand selects a whole color run at a time.";
+    else if(t==="paint") $("status").textContent = built ? "Paint: pick a color below, then click or drag cells. Ctrl+Z undoes." : "Build a mosaic first — then Paint fixes it tile by tile.";
     else if(t==="pick") $("status").textContent = built ? "Pick: click a cell to grab its color, then paint with it." : "Build a mosaic first.";
     else if(t==="erase") $("status").textContent = built ? "Erase: click or drag cells to clear them to empty (the baseplate shows through). Ctrl+Z undoes." : "Build a mosaic first.";
   }
@@ -750,21 +890,224 @@
     if(t>=0) built.counts[t]=(built.counts[t]||0)+1;
     return true;
   }
+  // ---- masses: gather the tiles of one part into a named set ----
+  function ensureGrp(){                                        // (re)make the membership grid to match the mosaic
+    if(!built) return null;
+    if(grp && grpW===built.gw && grpH===built.gh) return grp;
+    grp=new Int32Array(built.gw*built.gh); grpW=built.gw; grpH=built.gh; masses=[]; massSeq=0; selMass=0;
+    return grp;
+  }
+  const massOf = (r,c) => (grp && grpW===built.gw) ? grp[r*grpW+c] : 0;
+  const massById = id => masses.find(m=>m.id===id) || null;
+  function massCells(id){ const out=[]; if(!grp) return out;
+    for(let r=0;r<grpH;r++) for(let c=0;c<grpW;c++) if(grp[r*grpW+c]===id) out.push({r,c});
+    return out; }
+  function massBox(id){                                        // stud footprint of a mass: W x D in tiles
+    let r0=1e9,c0=1e9,r1=-1,c1=-1,n=0;
+    for(let r=0;r<grpH;r++) for(let c=0;c<grpW;c++) if(grp[r*grpW+c]===id){
+      n++; if(r<r0)r0=r; if(r>r1)r1=r; if(c<c0)c0=c; if(c>c1)c1=c; }
+    return n ? {n, w:c1-c0+1, h:r1-r0+1} : {n:0, w:0, h:0};
+  }
+  // The gesture that beats fused color runs: flood from the anchor cell across its OWN color, but never
+  // outside the dragged box. A plain click (no box) takes the whole region - right for a clean mosaic,
+  // and on a fused one it shows the student exactly how much is fused, which the box then cuts down.
+  function cellsInBox(box){                                    // every tile inside the dragged box, any color
+    const out=[];
+    for(let r=Math.max(0,box.r0); r<=Math.min(built.gh-1,box.r1); r++)
+      for(let c=Math.max(0,box.c0); c<=Math.min(built.gw-1,box.c1); c++)
+        if(built.idx[r][c]>=0) out.push({r,c});
+    return out;
+  }
+  function regionFrom(r0,c0,box){
+    const v=built.idx[r0][c0]; if(v<0) return [];
+    const gw=built.gw, gh=built.gh, seen=new Set(), out=[], q=[[r0,c0]];
+    const inBox = (r,c) => !box || (r>=box.r0 && r<=box.r1 && c>=box.c0 && c<=box.c1);
+    seen.add(r0*gw+c0);
+    while(q.length){
+      const [r,c]=q.pop(); out.push({r,c});
+      for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const rr=r+dr, cc=c+dc, k=rr*gw+cc;
+        if(rr<0||rr>=gh||cc<0||cc>=gw||seen.has(k)) continue;
+        if(built.idx[rr][cc]!==v || !inBox(rr,cc)) continue;
+        seen.add(k); q.push([rr,cc]);
+      }
+    }
+    return out;
+  }
+  function assignCells(cells, id){                             // one undo step; returns how many actually moved
+    if(!cells.length) return 0;
+    const changes=[];
+    for(const {r,c} of cells){ const k=r*grpW+c, before=grp[k]; if(before===id) continue;
+      grp[k]=id; changes.push({k, before, after:id}); }
+    if(changes.length){ undoStack.push({t:"group", changes}); redoStack.length=0; }
+    pruneMasses();
+    return changes.length;
+  }
+  function pruneMasses(){                                      // a mass with no tiles left stops existing
+    const live=new Set(); for(let i=0;i<grp.length;i++) if(grp[i]) live.add(grp[i]);
+    masses = masses.filter(m=>live.has(m.id));
+    if(selMass && !live.has(selMass)) selMass = masses.length ? masses[masses.length-1].id : 0;
+  }
+  function newMass(){ const id=++massSeq; masses.push({id, name:"Mass "+id}); selMass=id; return id; }
+  function recolorCells(cells, ti){                            // the one-click part: paint a whole selection or mass
+    if(!cells.length) return 0;
+    curStroke=new Map();
+    let n=0; for(const {r,c} of cells) if(setCell(r,c,ti)) n++;
+    commitStroke(); renderBOM();
+    return n;
+  }
+  // ---- the live tile selection, fed by BOTH the Tiles box and the Wand ----
+  const selList = () => [...selCells].map(k=>({r:Math.floor(k/grpW), c:k%grpW}));
+  function applySel(cells, mode){                              // replace | add | remove
+    if(mode==="replace") selCells.clear();
+    for(const {r,c} of cells){ const k=r*grpW+c; if(mode==="remove") selCells.delete(k); else selCells.add(k); }
+  }
+  function selBox(){                                           // footprint of the selection, in studs
+    let r0=1e9,c0=1e9,r1=-1,c1=-1;
+    for(const k of selCells){ const r=Math.floor(k/grpW), c=k%grpW;
+      if(r<r0)r0=r; if(r>r1)r1=r; if(c<c0)c0=c; if(c>c1)c1=c; }
+    return selCells.size ? {n:selCells.size, w:c1-c0+1, h:r1-r0+1} : {n:0,w:0,h:0};
+  }
+  function clearSel(){ selCells.clear(); }
+  function loadMassIntoSel(id){                                // reselect a mass: its tiles become the selection
+    const m=massById(id); if(!m) return false;
+    selCells.clear(); for(const {r,c} of massCells(id)) selCells.add(r*grpW+c);
+    selMass=id; return true;
+  }
+  function updateMass(id){                                     // make the mass match the selection exactly, in one undo step
+    const m=massById(id); if(!m) return;
+    const want=new Set(selCells), changes=[];
+    for(const k of want){ if(grp[k]!==id) changes.push({k, before:grp[k], after:id}); }
+    for(let k=0;k<grp.length;k++) if(grp[k]===id && !want.has(k)) changes.push({k, before:id, after:0});
+    if(!changes.length){ $("status").textContent=m.name+" already holds exactly those tiles."; return; }
+    for(const ch of changes) grp[ch.k]=ch.after;
+    undoStack.push({t:"group", changes}); redoStack.length=0;
+    pruneMasses(); renderMasses(); render();
+    const b=massBox(id);
+    $("status").textContent = m.name+" updated: "+b.n+" tiles, "+b.w+" × "+b.h+" studs. Ctrl+Z undoes.";
+  }
+  function groupSelection(){                                   // Group: the selected tiles become one named mass
+    if(!built || !selCells.size){ $("status").textContent="Select some tiles first — drag the Tiles box, or click with the Wand."; return; }
+    const cells=selList(), id=newMass(), n=assignCells(cells, id);
+    clearSel(); renderMasses(); render();
+    const m=massById(id), b=massBox(id);
+    $("status").textContent = m.name+": "+b.n+" tiles, "+b.w+" × "+b.h+" studs. Double-click its name to rename it, or click a palette color to recolor it.";
+  }
+  const tileTool = () => activeTool==="tiles" || activeTool==="wand";
+  function renderMasses(){
+    const box=$("masslist");
+    $("masspanel").style.display = (tileTool() || (built && masses.length)) ? "" : "none";
+    const sb=selBox();
+    const editing = selMass && massById(selMass);
+    $("selinfo").innerHTML = sb.n
+      ? ('<b>'+sb.n+' tile'+(sb.n>1?'s':'')+' selected</b> · '+sb.w+' × '+sb.h+' studs'
+         + (editing ? ' · editing <b>'+massById(selMass).name+'</b>' : ''))
+      : (editing ? ('<b>'+massById(selMass).name+'</b> is highlighted — click it, or its row, to select its tiles')
+                 : 'Nothing selected.');
+    $("bGroup").textContent = (sb.n && editing) ? "Update mass" : "Group";
+    $("bGroup").title = (sb.n && editing) ? "Make "+massById(selMass).name+" hold exactly the selected tiles"
+                                          : "Make the selected tiles into one new named mass";
+    $("bGroup").disabled = !sb.n;
+    $("bDesel").disabled = !(sb.n || selMass);
+    if(!built || !masses.length){ box.innerHTML='<div class="hint" style="margin-top:.2rem">No masses yet.</div>'; return; }
+    let h='<table style="border-collapse:collapse;width:100%;font-size:.85rem">';
+    masses.forEach(m=>{
+      const b=massBox(m.id), on=(m.id===selMass);
+      h+='<tr data-mid="'+m.id+'" class="massrow" style="cursor:pointer;'+(on?'background:rgba(26,95,180,.12)':'')+'">'
+        +'<td style="padding:2px 4px">'+(on?'▸':' ')+'</td>'
+        +'<td style="padding:2px 4px"><span class="massname" data-mid="'+m.id+'" title="Click the row to select this mass; double-click the name to rename it">'+m.name+'</span></td>'
+        +'<td style="padding:2px 4px;text-align:right;font-variant-numeric:tabular-nums">'+b.w+'×'+b.h+'</td>'
+        +'<td style="padding:2px 4px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums">'+b.n+'</td>'
+        +'<td style="padding:2px 4px;text-align:right"><span class="massdel" data-mid="'+m.id+'" title="Ungroup: give these tiles back" style="cursor:pointer;color:#a33">✕</span></td></tr>';
+    });
+    h+='</table><div class="hint" style="margin-top:.3rem">Columns: name, studs across × down, tiles. '
+      +'With a mass selected, click a palette color to recolor the whole mass at once.</div>';
+    box.innerHTML=h;
+    // Clicking anywhere on the row - the NAME included - selects that mass. Renaming moved to a double-click,
+    // because the name is the obvious thing to click when you want the mass.
+    [...box.querySelectorAll(".massrow")].forEach(tr=>tr.onclick=e=>{
+      if(e.target.classList.contains("massdel")) return;
+      const id=+tr.getAttribute("data-mid");
+      loadMassIntoSel(id); renderMasses(); render();          // reselect it: its tiles come back as the selection
+      const m=massById(id), b=massBox(id);
+      $("status").textContent = m.name+" reselected: "+b.n+" tiles. Shift-click tiles to change it, then press Update mass. Ctrl-D deselects."; });
+    [...box.querySelectorAll(".massname")].forEach(sp=>sp.ondblclick=e=>{
+      e.stopPropagation(); const m=massById(+sp.getAttribute("data-mid")); if(!m) return;
+      const v=prompt("Name this mass (head, wing, near leg …)", m.name); if(v!=null && v.trim()){ m.name=v.trim(); renderMasses(); render(); } });
+    [...box.querySelectorAll(".massdel")].forEach(sp=>sp.onclick=e=>{
+      e.stopPropagation(); const id=+sp.getAttribute("data-mid");
+      assignCells(massCells(id), 0); renderMasses(); render();
+      $("status").textContent="Ungrouped — those tiles belong to no mass now. Ctrl+Z puts it back."; });
+  }
+  // Outlines, drawn only while grouping (or when a mass is selected) so the mosaic reads normally otherwise.
+  function drawMasses(f){
+    if(!grp || grpW!==built.gw) return;
+    const gw=built.gw, gh=built.gh, cw=f.w/gw, ch=f.h/gh;
+    ctx.save();
+    for(const m of masses){
+      const on=(m.id===selMass);
+      ctx.strokeStyle = on ? "#1a5fb4" : "rgba(26,95,180,0.45)";
+      ctx.lineWidth   = on ? 2.5 : 1.5;
+      ctx.beginPath();
+      for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
+        if(grp[r*gw+c]!==m.id) continue;
+        const x=f.x+c*cw, y=f.y+r*ch;
+        if(r===0    || grp[(r-1)*gw+c]!==m.id){ ctx.moveTo(x,y);       ctx.lineTo(x+cw,y); }
+        if(r===gh-1 || grp[(r+1)*gw+c]!==m.id){ ctx.moveTo(x,y+ch);    ctx.lineTo(x+cw,y+ch); }
+        if(c===0    || grp[r*gw+c-1]!==m.id){   ctx.moveTo(x,y);       ctx.lineTo(x,y+ch); }
+        if(c===gw-1 || grp[r*gw+c+1]!==m.id){   ctx.moveTo(x+cw,y);    ctx.lineTo(x+cw,y+ch); }
+      }
+      ctx.stroke();
+    }
+    // the live selection: dashed edges around whatever is selected right now
+    if(selCells.size){
+      ctx.setLineDash([4,3]); ctx.lineWidth=2; ctx.strokeStyle="#0b6b3a";
+      ctx.beginPath();
+      for(const k of selCells){
+        const r=Math.floor(k/gw), c=k%gw, x=f.x+c*cw, y=f.y+r*ch;
+        if(!selCells.has((r-1)*gw+c) || r===0)    { ctx.moveTo(x,y);    ctx.lineTo(x+cw,y); }
+        if(!selCells.has((r+1)*gw+c) || r===gh-1) { ctx.moveTo(x,y+ch); ctx.lineTo(x+cw,y+ch); }
+        if(!selCells.has(r*gw+c-1)   || c===0)    { ctx.moveTo(x,y);    ctx.lineTo(x,y+ch); }
+        if(!selCells.has(r*gw+c+1)   || c===gw-1) { ctx.moveTo(x+cw,y); ctx.lineTo(x+cw,y+ch); }
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    if(gdrag){                                                  // the marquee being dragged out
+      const r0=Math.min(gdrag.r0,gdrag.r), r1=Math.max(gdrag.r0,gdrag.r);
+      const c0=Math.min(gdrag.c0,gdrag.c), c1=Math.max(gdrag.c0,gdrag.c);
+      ctx.setLineDash([5,3]); ctx.lineWidth=1.5;
+      ctx.strokeStyle = gdrag.mode==="remove" ? "#a33" : "#0b6b3a";
+      ctx.strokeRect(f.x+c0*cw, f.y+r0*ch, (c1-c0+1)*cw, (r1-r0+1)*ch);
+    }
+    ctx.restore();
+  }
+
   // ---- undo / redo for paint & erase (one stroke = one step) ----
-  function commitStroke(){ if(curStroke&&curStroke.size){ undoStack.push([...curStroke.values()]); redoStack.length=0; } curStroke=null; }
+  function commitStroke(){ if(curStroke&&curStroke.size){ undoStack.push({t:"cells", edits:[...curStroke.values()]}); redoStack.length=0; } curStroke=null; }
   function clearHistory(){ undoStack.length=0; redoStack.length=0; curStroke=null; }
   function apply(edits, useBefore){ for(const ed of edits) setCell(ed.r, ed.c, useBefore?ed.before:ed.after); }   // curStroke is null here, so no re-record
+  function applyGroup(changes, useBefore){                       // membership changes undo the same way tiles do
+    if(!grp) return;
+    for(const ch of changes) grp[ch.k] = useBefore ? ch.before : ch.after;
+    const seen=new Set(); for(let i=0;i<grp.length;i++) if(grp[i]) seen.add(grp[i]);
+    for(const id of seen) if(!massById(id)){ masses.push({id, name:"Mass "+id}); if(id>massSeq) massSeq=id; }   // an undone ungroup brings its mass back
+    pruneMasses();
+  }
+  const stepOf = e => Array.isArray(e) ? {t:"cells", edits:e} : e;   // tolerate history written before masses existed
   function showResult(){}   // no-op: the mosaic always shows when built
   function undo(){
     if(!built||!undoStack.length){ $("status").textContent="Nothing to undo."; return; }
-    const edits=undoStack.pop(); apply(edits,true); redoStack.push(edits); showResult();
-    renderBOM(); render();
-    $("status").textContent="Undid a paint edit ("+edits.length+" tile"+(edits.length>1?"s":"")+"). Ctrl+Y redoes.";
+    const step=stepOf(undoStack.pop()); redoStack.push(step);
+    if(step.t==="group"){ applyGroup(step.changes,true); renderMasses(); render();
+      $("status").textContent="Undid a grouping change ("+step.changes.length+" tile"+(step.changes.length>1?"s":"")+"). Ctrl+Y redoes."; return; }
+    apply(step.edits,true); showResult(); renderBOM(); render();
+    $("status").textContent="Undid a paint edit ("+step.edits.length+" tile"+(step.edits.length>1?"s":"")+"). Ctrl+Y redoes.";
   }
   function redo(){
     if(!built||!redoStack.length){ $("status").textContent="Nothing to redo."; return; }
-    const edits=redoStack.pop(); apply(edits,false); undoStack.push(edits); showResult();
-    renderBOM(); render();
+    const step=stepOf(redoStack.pop()); undoStack.push(step);
+    if(step.t==="group"){ applyGroup(step.changes,false); renderMasses(); render(); $("status").textContent="Redid a grouping change."; return; }
+    apply(step.edits,false); showResult(); renderBOM(); render();
     $("status").textContent="Redid a paint edit.";
   }
 
@@ -856,7 +1199,8 @@
     if(doClean){ idx=cleanup(idx,gw,gh); idx=cleanup(idx,gw,gh); }
     const counts={}; for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const v=idx[r][c]; if(v>=0) counts[v]=(counts[v]||0)+1; }
     built={gw,gh,idx,counts}; clearHistory();   // a fresh build starts a clean undo history
-    renderBOM(); render();
+    if(grp && (grpW!==gw || grpH!==gh)){ grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0; }   // same grid size -> masses survive a re-map; a different one cannot
+    renderBOM(); renderMasses(); render();
     const tiled=Object.values(counts).reduce((a,b)=>a+b,0);
     $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+Object.keys(counts).length+" colors. Use Compare or Transparent to check it against the photo.";
   }
@@ -915,7 +1259,9 @@
     $("bom").innerHTML=h;
   }
 
-  function invalidate(){ if(built){ built=null; renderBOM(); clearHistory(); } }   // now only grid-size change calls this
+  // Only a grid-size change calls this, and masses are keyed by cell, so they cannot survive a resize.
+  function invalidate(){ if(built){ built=null; renderBOM(); clearHistory();
+    grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0; renderMasses(); } }
   function updateButtons(){
     $("bBuild").disabled=(layers.length===0);
     $("bSeeThru").disabled=!built;
@@ -927,16 +1273,22 @@
   $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough;
     $("status").textContent = seeThrough ? "Transparent: the photo shows through the translucent tiles. Toggle it off for solid tiles." : "Solid tiles."; render(); };
   $("bChart").onclick = printMosaic;
+  $("tSelect").onclick=()=>setTool("select");
   $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
   $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
   $("tErase").onclick=()=>setTool(activeTool==="erase"?"select":"erase");
+  $("tTiles").onclick=()=>setTool(activeTool==="tiles"?"select":"tiles");
+  $("tWand").onclick =()=>setTool(activeTool==="wand" ?"select":"wand");
+  $("bGroup").onclick=()=>{ if(selCells.size && selMass && massById(selMass)) updateMass(selMass); else groupSelection(); };
+  $("bDesel").onclick=()=>{ clearSel(); selMass=0; renderMasses(); render(); $("status").textContent="Deselected."; };
   cv.addEventListener("contextmenu", e=>{ if(activeTool==="paint"||activeTool==="erase") e.preventDefault(); });   // right-click = erase, no menu
   $("colorsVal").textContent=$("optColors").value;
   ["optIgnoreBg","optColors","optClean","optContrast","optBright"].forEach(id=>$(id).addEventListener("input", ()=>{
     $("colorsVal").textContent=$("optColors").value;
     if(built) build();   // live re-map once a mosaic exists
   }));
-  buildSwatches(); buildBaseplates(); syncShow();
+  buildSwatches(); buildBaseplates(); syncShow(); renderMasses();
+  $("tSelect").classList.add("on");        // Select is the mode the app opens in
 
   physical(); render();
   window.addEventListener("resize", render);                       // re-fit the canvas as the window changes
