@@ -91,6 +91,13 @@ Studio; pulling them in is the overloading this split is meant to avoid.
 
 ## Conventions (same house rules as Sangala Studio)
 - **American spelling everywhere** — color, center, gray, behavior. US project, US course.
+- **All buttons and headings are Title Case** (set by Glen 2026-07-26): "Add Tile Colors in a
+  Photo", "Fit to Photo", "Tile List", "Update Mass" — minor words (a, in, to, the) stay
+  lowercase. Applies to static labels AND labels set from JS. And no shouting anywhere: never
+  ALL-CAPS a word for emphasis in UI text or tooltips ("added", not "ADDED").
+- **UI wording must not presume the student's plan.** A student may design first and buy tiles
+  later. Palette wording stays neutral ("Adjust colors in the Tile Palette", not "change which
+  tile colors you have"); no ownership language outside the Tile Colors fold.
 - **NEVER write "honest", "honestly", "genuinely", or "straightforward"** — anywhere. Say the
   thing plainly. (Glen has had to correct this repeatedly in the sibling project.)
 - Be concise and direct; prose over bullet lists unless a list is warranted. Do NOT use popup

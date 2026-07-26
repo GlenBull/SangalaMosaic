@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.58 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.59 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -149,7 +149,7 @@
 <div id="saveMenu" class="popmenu" style="display:none">
   <button id="saveProj" title="Save the whole project so you can keep editing later">Project <small>.mosaic</small></button>
   <button id="saveImg" title="Save a picture of the mosaic">Image <small>.png / .jpg</small></button>
-  <button id="saveList" title="Save the tile counts per color — the list to order from or build against">Tile list <small>.txt</small></button>
+  <button id="saveList" title="Save the tile counts per color — the list to order from or build against">Tile List <small>.txt</small></button>
 </div>
 
 <div id="printArea"><img id="printImg" alt="Mosaic"><div id="printList"></div></div>
@@ -195,15 +195,15 @@
       <h2 class="marker sub" style="margin-top:0">Selected Image</h2>
       <div class="hint" id="lpos" style="margin-top:0"></div>
       <div class="two" style="margin-top:.4rem">
-        <button class="ebtn" id="lFront" title="Bring this image in front of all the others">To front</button>
+        <button class="ebtn" id="lFront" title="Bring this image in front of all the others">To Front</button>
         <button class="ebtn" id="lRaise" title="Move it one step toward the front">Forward</button>
       </div>
       <div class="two" style="margin-top:.35rem">
         <button class="ebtn" id="lLower" title="Move it one step toward the back">Backward</button>
-        <button class="ebtn" id="lBack"  title="Send this image behind all the others">To back</button>
+        <button class="ebtn" id="lBack"  title="Send this image behind all the others">To Back</button>
       </div>
-      <button class="ebtn" id="lBg" title="Make this image's plain background transparent, so the layers behind show through" style="width:100%;margin-top:.5rem">Remove background</button>
-      <button class="ebtn" id="lDel" title="Remove this image (or press the Delete key)" style="width:100%;margin-top:.35rem">Remove image</button>
+      <button class="ebtn" id="lBg" title="Make this image's plain background transparent, so the layers behind show through" style="width:100%;margin-top:.5rem">Remove Background</button>
+      <button class="ebtn" id="lDel" title="Remove this image (or press the Delete key)" style="width:100%;margin-top:.35rem">Remove Image</button>
     </div>
 
     <!-- Masses sits HIGH and appears only while it is wanted (same pattern as "Selected image" above):
@@ -237,7 +237,7 @@
       <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer" title="Show or hide the baseplate behind the tiles"><input type="checkbox" id="ckPlate" checked style="width:auto;margin:0"> Baseplate</label>
       <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer" title="Show or hide the outline around the mosaic area"><input type="checkbox" id="ckBox" checked style="width:auto;margin:0"> Box</label>
     </div>
-    <button class="ebtn" id="bFitGrid" disabled title="Lay the grid over the photo — the largest area of this shape that fits it" style="width:100%;margin-top:.5rem">Fit to photo</button>
+    <button class="ebtn" id="bFitGrid" disabled title="Lay the grid over the photo — the largest area of this shape that fits it" style="width:100%;margin-top:.5rem">Fit to Photo</button>
 
     <h2 class="marker sub">Baseplate</h2>
     <div class="hint" style="margin-top:0">The plate the tiles sit on.</div>
@@ -257,7 +257,7 @@
         <button class="ebtn" id="bOwnNone" title="Start with an empty palette, then add colors">Clear</button>
         <button class="ebtn" id="bOwnReset" title="Reset to standard Tile Palette">Reset</button>
       </div>
-      <button class="ebtn" id="bOwnPhoto" style="width:100%;margin-top:.35rem" title="Read the tile colors out of the photo in the workspace — loose tiles, a tray of them, or a mosaic already built from them. Colors are ADDED to the palette; press Clear first to use only these.">Add tile colors in a photo</button>
+      <button class="ebtn" id="bOwnPhoto" style="width:100%;margin-top:.35rem" title="Read the tile colors out of the photo in the workspace — loose tiles, a tray of them, or a mosaic already built from them. Colors are added to the palette; press Clear first to use only these.">Add Tile Colors in a Photo</button>
     </div>
     <!-- Tiles read from a photo keep their own set. They are still real LEGO colors - the reading snaps each
          one to the nearest - but they are the tiles the student actually has, so they are not mixed into the
@@ -481,7 +481,7 @@
       if(id && loadMassIntoSel(id)){
         sel=null; renderMasses(); render();
         const m=massById(id), b=massBox(id);
-        $("status").textContent = m.name+" reselected: "+b.n+" tiles, "+b.w+" × "+b.h+" studs. Shift-click tiles to change it, then press Update mass. Ctrl-D deselects.";
+        $("status").textContent = m.name+" reselected: "+b.n+" tiles, "+b.w+" × "+b.h+" studs. Shift-click tiles to change it, then press Update Mass. Ctrl-D deselects.";
         e.preventDefault(); return;
       }
       if(selCells.size || selMass){                  // clicking off a selection deselects it, then behaves normally
@@ -1234,7 +1234,7 @@
          + (editing ? ' · editing <b>'+massById(selMass).name+'</b>' : ''))
       : (editing ? ('<b>'+massById(selMass).name+'</b> is highlighted — click it, or its row, to select its tiles')
                  : 'Nothing selected.');
-    $("bGroup").textContent = (sb.n && editing) ? "Update mass" : "Group";
+    $("bGroup").textContent = (sb.n && editing) ? "Update Mass" : "Group";
     $("bGroup").title = (sb.n && editing) ? "Make "+massById(selMass).name+" hold exactly the selected tiles"
                                           : "Make the selected tiles into one new named mass";
     $("bGroup").disabled = !sb.n;
@@ -1260,7 +1260,7 @@
       const id=+tr.getAttribute("data-mid");
       loadMassIntoSel(id); renderMasses(); render();          // reselect it: its tiles come back as the selection
       const m=massById(id), b=massBox(id);
-      $("status").textContent = m.name+" reselected: "+b.n+" tiles. Shift-click tiles to change it, then press Update mass. Ctrl-D deselects."; });
+      $("status").textContent = m.name+" reselected: "+b.n+" tiles. Shift-click tiles to change it, then press Update Mass. Ctrl-D deselects."; });
     [...box.querySelectorAll(".massname")].forEach(sp=>sp.ondblclick=e=>{
       e.stopPropagation(); const m=massById(+sp.getAttribute("data-mid")); if(!m) return;
       const v=prompt("Name this mass (head, wing, near leg …)", m.name); if(v!=null && v.trim()){ m.name=v.trim(); renderMasses(); render(); } });
