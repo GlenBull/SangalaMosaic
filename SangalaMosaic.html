@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.68 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.69 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -217,6 +217,7 @@
         Group them into a mass — the head, a wing, a leg. <b>Shift-click a tile to add it, or to drop it if it
         is already selected.</b> Shift-drag adds a box, Alt removes, Ctrl-D deselects everything. With tiles
         selected, click a palette color to recolor them all at once.</div>
+      <label class="fld" id="wandRow" style="display:none;margin-top:.45rem" title="How similar a neighboring tile must be to join the Wand's selection — at 0, only tiles of the clicked color">Similar Colors<input type="range" id="optWand" min="0" max="100" value="0" style="width:100%"></label>
       <div id="selinfo" style="margin-top:.45rem;font-size:.85rem;color:#5a4a34"></div>
       <div class="two" style="margin-top:.35rem">
         <button class="ebtn" id="bGroup" title="Make the selected tiles into one named mass">Group</button>
@@ -460,7 +461,8 @@
           else $("status").textContent="That cell is empty — click a tile.";
           return;
         }
-        applySel(regionFrom(cel.r, cel.c, null), mode);
+        applySel(regionFrom(cel.r, cel.c, null, wandTol()), mode);
+        lastWand = (mode==="replace") ? {r:cel.r, c:cel.c} : null;   // the seed the Similar Colors slider re-grows from
         renderMasses(); render();
         const sb=selBox();
         $("status").textContent = sb.n+" tile"+(sb.n>1?"s":"")+" selected ("+sb.w+" × "+sb.h+" studs). Shift-click adds another run, then press Group.";
@@ -1191,17 +1193,20 @@
         if(built.idx[r][c]>=0) out.push({r,c});
     return out;
   }
-  function regionFrom(r0,c0,box){
+  function regionFrom(r0,c0,box,tol){
     const v=built.idx[r0][c0]; if(v<0) return [];
     const gw=built.gw, gh=built.gh, seen=new Set(), out=[], q=[[r0,c0]];
     const inBox = (r,c) => !box || (r>=box.r0 && r<=box.r1 && c>=box.c0 && c<=box.c1);
+    // tol: redmean distance within which a DIFFERENT palette color still joins the run (the Wand's
+    // Similar Colors slider). 0 or absent = the exact color only, as always.
+    const match = u => u>=0 && (u===v || (tol>0 && dist2(PALETTE[u].rgb, PALETTE[v].rgb)<=tol));
     seen.add(r0*gw+c0);
     while(q.length){
       const [r,c]=q.pop(); out.push({r,c});
       for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
         const rr=r+dr, cc=c+dc, k=rr*gw+cc;
         if(rr<0||rr>=gh||cc<0||cc>=gw||seen.has(k)) continue;
-        if(built.idx[rr][cc]!==v || !inBox(rr,cc)) continue;
+        if(!match(built.idx[rr][cc]) || !inBox(rr,cc)) continue;
         seen.add(k); q.push([rr,cc]);
       }
     }
@@ -1241,7 +1246,21 @@
       if(r<r0)r0=r; if(r>r1)r1=r; if(c<c0)c0=c; if(c>c1)c1=c; }
     return selCells.size ? {n:selCells.size, w:c1-c0+1, h:r1-r0+1} : {n:0,w:0,h:0};
   }
-  function clearSel(){ selCells.clear(); }
+  function clearSel(){ selCells.clear(); lastWand=null; }
+  // The Wand's Similar Colors slider: 0 = exact color only; the quadratic curve gives fine control
+  // among close colors at the low end and only merges everything near the top.
+  let lastWand=null;
+  const wandTol = () => { const s=+$("optWand").value; return s ? s*s*26 : 0; };
+  $("optWand").addEventListener("input", ()=>{
+    if(activeTool==="wand" && built && lastWand && built.idx[lastWand.r] && built.idx[lastWand.r][lastWand.c]>=0){
+      applySel(regionFrom(lastWand.r, lastWand.c, null, wandTol()), "replace");
+      renderMasses(); render();
+      const sb=selBox();
+      $("status").textContent = sb.n+" tile"+(sb.n>1?"s":"")+" selected. Slide left for fewer colors, right for more; click elsewhere to start a new run.";
+    } else {
+      $("status").textContent="Similar Colors set — click a tile with the Wand and the run reaches into colors this similar.";
+    }
+  });
   function loadMassIntoSel(id){                                // reselect a mass: its tiles become the selection
     const m=massById(id); if(!m) return false;
     selCells.clear(); for(const {r,c} of massCells(id)) selCells.add(r*grpW+c);
@@ -1600,6 +1619,7 @@
     $("bChart").disabled=!built;                            // Print needs a built mosaic (same as Save image)
     $("bClearMosaic").disabled=!built;
     $("seeRow").style.display=(seeThrough&&built)?"":"none"; // the Transparency slider only means something in Transparent mode
+    $("wandRow").style.display=(activeTool==="wand"&&built)?"":"none"; // Similar Colors belongs to the Wand alone
     $("bFitGrid").disabled=(layers.length===0);             // needs a photo to fit the grid to
   }
 
