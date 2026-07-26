@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.51 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.52 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -85,7 +85,8 @@
   .popmenu button:disabled{opacity:.4;cursor:default}
   .popmenu button:disabled:hover{background:none}
   .popmenu small{color:#8a7658;font-size:.72rem}
-  /* --- print: show ONLY the mosaic picture, following the Show checkboxes (same image as Save image) --- */
+  /* --- print: the mosaic picture (same image as Save image, following the Show checkboxes) with the
+     tile counts beneath it — the sheet a builder pulls tiles against, so the counts belong on it --- */
   #printArea{display:none}
   @media print{
     html,body{height:auto !important;overflow:visible !important;background:#fff !important}
@@ -93,6 +94,14 @@
     body>*{display:none !important}
     #printArea{display:block !important}
     #printArea img{display:block;max-width:100%;height:auto;margin:0 auto}
+    #printList{margin:6mm auto 0;max-width:180mm;font-family:system-ui,-apple-system,sans-serif;color:#000;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #printList .plhead{font-size:11pt;font-weight:600;text-align:center;margin-bottom:3mm}
+    #printList .plcols{column-width:50mm;column-gap:8mm}
+    #printList .plrow{display:flex;align-items:center;gap:2.5mm;font-size:10pt;padding:.8mm 0;break-inside:avoid}
+    #printList .plsw{width:4mm;height:4mm;border:.3mm solid #777;border-radius:1mm;flex:none}
+    #printList .plname{flex:1}
+    #printList .plcount{font-weight:600;font-variant-numeric:tabular-nums}
     @page{margin:12mm}
   }
   .ebtn:disabled{opacity:.45;cursor:default;box-shadow:none}
@@ -143,7 +152,7 @@
   <button id="saveList" title="Save the tile counts per color — the list to order from or build against">Tile list <small>.txt</small></button>
 </div>
 
-<div id="printArea"><img id="printImg" alt="Mosaic"></div>
+<div id="printArea"><img id="printImg" alt="Mosaic"><div id="printList"></div></div>
 
 <div class="stage">
 
@@ -677,9 +686,27 @@
     $("status").textContent="Saved Mosaic.png.";
   }
   // Print follows the same rules as Save image: it prints the same WYSIWYG picture (baseplate, tiles, grid
-  // + coordinate labels, outline — whatever the Show checkboxes indicate). @media print shows only #printArea.
+  // + coordinate labels, outline — whatever the Show checkboxes indicate), then the tile counts beneath it,
+  // matching Save > Tile list. @media print shows only #printArea.
+  function fillPrintList(){
+    const rows=tileRows(), box=$("printList"); box.innerHTML="";
+    const total=rows.reduce((a,r)=>a+r.n,0);
+    const head=document.createElement("div"); head.className="plhead";
+    head.textContent=(projectName||"Mosaic")+" — "+total+" tiles in "+rows.length+" color"+(rows.length!==1?"s":"")
+      +" · "+built.gw+" x "+built.gh+" grid";
+    const cols=document.createElement("div"); cols.className="plcols";
+    rows.forEach(r=>{
+      const row=document.createElement("div"); row.className="plrow";
+      const sw=document.createElement("span"); sw.className="plsw"; sw.style.background="rgb("+PALETTE[r.i].rgb.join(",")+")";
+      const nm=document.createElement("span"); nm.className="plname"; nm.textContent=PALETTE[r.i].name;
+      const ct=document.createElement("span"); ct.className="plcount"; ct.textContent=r.n;
+      row.append(sw,nm,ct); cols.appendChild(row);
+    });
+    box.append(head,cols);
+  }
   function printMosaic(){
     if(!built){ $("status").textContent="Build the mosaic first, then print it."; return; }
+    fillPrintList();
     const img=$("printImg"), url=mosaicImageCanvas(true).toDataURL("image/png");   // opaque so it prints on white paper
     const go=()=>{ img.onload=img.onerror=null; window.print(); };
     if(img.getAttribute("src")===url && img.complete) go();                        // same picture already loaded (repeat print)
