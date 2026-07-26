@@ -95,9 +95,13 @@ Studio; pulling them in is the overloading this split is meant to avoid.
   Photo", "Fit to Photo", "Tile List", "Update Mass" — minor words (a, in, to, the) stay
   lowercase. Applies to static labels AND labels set from JS. And no shouting anywhere: never
   ALL-CAPS a word for emphasis in UI text or tooltips ("added", not "ADDED").
-- **UI wording must not presume the student's plan.** A student may design first and buy tiles
-  later. Palette wording stays neutral ("Adjust colors in the Tile Palette", not "change which
-  tile colors you have"); no ownership language outside the Tile Colors fold.
+- **UI wording must not presume the student's plan — and neither may the docs (Glen, 2026-07-26,
+  after the guide shipped "pervaded with this mindset").** A student may design first and buy
+  tiles later. The palette is the SET OF COLORS THE MOSAIC USES; matching it to owned tiles is one
+  way to use it, never the frame. Palette wording stays neutral ("Adjust colors in the Tile
+  Palette", not "change which tile colors you have"); no ownership language outside the Tile
+  Colors fold; in the User Guide, no "build to the tiles you own" framing — the parts list is
+  "the list to order from or build against."
 - **NEVER write "honest", "honestly", "genuinely", or "straightforward"** — anywhere. Say the
   thing plainly. (Glen has had to correct this repeatedly in the sibling project.)
 - Be concise and direct; prose over bullet lists unless a list is warranted. Do NOT use popup
