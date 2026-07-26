@@ -102,6 +102,14 @@ Studio; pulling them in is the overloading this split is meant to avoid.
   Palette", not "change which tile colors you have"); no ownership language outside the Tile
   Colors fold; in the User Guide, no "build to the tiles you own" framing — the parts list is
   "the list to order from or build against."
+- **The User Guide is a REFERENCE guide (Glen, 2026-07-26): tools and functionality only,
+  completely neutral on pedagogy.** It says what each control is, does, and where it lives — it
+  never prescribes a workflow, an order of operations, or "which tools for which task." The
+  Design through Making book (Chapter 4 for Mosaic) is the carefully scaffolded teaching sequence;
+  a guide that teaches competes with the chapter and will contradict it as the chapter evolves.
+  You cannot predict how users will use the app once it leaves your hands — don't try. State
+  facts, not advice ("rebuilding resets hand edits", never "so save your hand edits for last").
+  No course narrative ("your animal") in the guide.
 - **NEVER write "honest", "honestly", "genuinely", or "straightforward"** — anywhere. Say the
   thing plainly. (Glen has had to correct this repeatedly in the sibling project.)
 - Be concise and direct; prose over bullet lists unless a list is warranted. Do NOT use popup
