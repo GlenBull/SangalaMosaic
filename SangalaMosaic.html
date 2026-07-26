@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.63 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.64 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -190,6 +190,7 @@
       <input type="checkbox" id="optClean" checked style="width:auto;margin:0"> Clean up stray tiles</label>
     <label class="fld" style="margin-top:.5rem">Contrast<input type="range" id="optContrast" min="-100" max="100" value="0" style="width:100%"></label>
     <label class="fld" style="margin-top:.15rem">Brightness<input type="range" id="optBright" min="-100" max="100" value="0" style="width:100%"></label>
+    <button class="ebtn" id="bClearMosaic" disabled style="width:100%;margin-top:.5rem" title="Empty every cell of the grid. Ctrl-Z brings the mosaic back.">Clear Mosaic</button>
 
     <div id="selimg" style="display:none;margin-top:.6rem;border-top:1px solid #d8c4a0;padding-top:.5rem">
       <h2 class="marker sub" style="margin-top:0">Selected Image</h2>
@@ -1498,6 +1499,7 @@
     $("bSeeThru").disabled=!built;
     $("bSeeThru").classList.toggle("on", seeThrough && built);
     $("bChart").disabled=!built;                            // Print needs a built mosaic (same as Save image)
+    $("bClearMosaic").disabled=!built;
     $("bFitGrid").disabled=(layers.length===0);             // needs a photo to fit the grid to
   }
 
@@ -1505,6 +1507,21 @@
   $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough;
     $("status").textContent = seeThrough ? "Transparent: the photo shows through the translucent tiles. Toggle it off for solid tiles." : "Solid tiles."; render(); };
   $("bChart").onclick = printMosaic;
+  // One undoable step: every filled cell -> empty. Photos, palette, grid, and masses are untouched,
+  // so Ctrl-Z restores the whole mosaic exactly (mass membership lives in grp[], not in the cells).
+  $("bClearMosaic").onclick=()=>{
+    if(!built) return;
+    const edits=[];
+    for(let r=0;r<built.gh;r++) for(let c=0;c<built.gw;c++){
+      const v=built.idx[r][c]; if(v>=0) edits.push({r,c,before:v,after:-1});
+    }
+    if(!edits.length){ $("status").textContent="The grid is already empty."; return; }
+    apply(edits,false);
+    undoStack.push({t:"cells",edits}); redoStack.length=0;
+    if(selCells.size||selMass){ clearSel(); selMass=0; renderMasses(); }
+    renderBOM(); render();
+    $("status").textContent="Cleared "+edits.length+" tiles from the grid. Ctrl-Z brings them all back.";
+  };
   $("tSelect").onclick=()=>setTool("select");
   $("tPaint").onclick=()=>setTool(activeTool==="paint"?"select":"paint");
   $("tPick").onclick =()=>setTool(activeTool==="pick" ?"select":"pick");
