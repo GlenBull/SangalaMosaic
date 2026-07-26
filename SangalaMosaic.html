@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.64 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.65 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -191,6 +191,7 @@
     <label class="fld" style="margin-top:.5rem">Contrast<input type="range" id="optContrast" min="-100" max="100" value="0" style="width:100%"></label>
     <label class="fld" style="margin-top:.15rem">Brightness<input type="range" id="optBright" min="-100" max="100" value="0" style="width:100%"></label>
     <button class="ebtn" id="bClearMosaic" disabled style="width:100%;margin-top:.5rem" title="Empty every cell of the grid. Ctrl-Z brings the mosaic back.">Clear Mosaic</button>
+    <label class="fld" id="seeRow" style="display:none;margin-top:.5rem" title="How much the photo shows through the tiles in Transparent mode">Transparency<input type="range" id="optSee" min="10" max="90" value="55" style="width:100%"></label>
 
     <div id="selimg" style="display:none;margin-top:.6rem;border-top:1px solid #d8c4a0;padding-top:.5rem">
       <h2 class="marker sub" style="margin-top:0">Selected Image</h2>
@@ -307,6 +308,7 @@
   let showPlate = true;   // whether the studded baseplate shows behind the built tiles
   let showBox = true;     // the outline (bounding box) around the mosaic area
   let seeThrough = false; // translucent mosaic: the source photo shows through the tiles
+  let seeAlpha = 0.45;    // tile opacity in Transparent mode; the Transparency slider sets it
   let built = null;   // the computed mosaic — a snapshot that lives in the grid; only Build (re)makes it
   let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick/Erase
   let undoStack = [], redoStack = [], curStroke = null;   // paint-edit history: each entry is one stroke's per-cell {before,after}
@@ -396,7 +398,7 @@
     ensureFrame();
     if(built){
       if(seeThrough){                                                    // Transparent: translucent tiles over the photo underneath (tracing)
-        ctx.save(); ctx.globalAlpha=0.55; drawBuilt(frame, true); ctx.restore();
+        ctx.save(); ctx.globalAlpha=seeAlpha; drawBuilt(frame, true); ctx.restore();
         drawFrame(frame, false);
       } else {
         drawBuilt(); drawFrame(frame, showPlate);                        // solid mosaic on its baseplate, drawn in the grid
@@ -608,7 +610,7 @@
     const proj={ app:"Sangala Mosaic", v:1, grid:{gw:gW(),gh:gH()}, frame,
       layers: layers.map(L=>({ src:imgToDataURL(L.img), x:L.x, y:L.y, w:L.w, h:L.h, bgRemoved:!!L.bgRemoved })),
       built, palette:PALETTE.map(p=>!!p.own), myTiles:PALETTE.map(p=>!!p.fromPhoto),
-      baseIdx, showPlate, showGrid, showBox, seeThrough, paintColor,
+      baseIdx, showPlate, showGrid, showBox, seeThrough, seeAlpha, paintColor,
       // masses ride OUTSIDE built, exactly as they do in memory, so a re-map at the same grid size keeps them
       masses, massSeq, grp: grp?Array.from(grp):null, grpW, grpH,
       opts:{ ignoreBg:$("optIgnoreBg").checked, colors:$("optColors").value, clean:$("optClean").checked,
@@ -727,6 +729,8 @@
     buildSwatches();
     baseIdx=p.baseIdx||0; plateCache={key:null}; buildBaseplates();
     showPlate=p.showPlate!==false; showGrid=p.showGrid!==false; showBox=p.showBox!==false; seeThrough=!!p.seeThrough; paintColor=p.paintColor||1;
+    seeAlpha=(typeof p.seeAlpha==="number" && p.seeAlpha>0 && p.seeAlpha<1)?p.seeAlpha:0.45;
+    $("optSee").value=Math.round(100*(1-seeAlpha));
     syncShow();
     frame=p.frame||null; built=p.built||null; setTool("select");
     grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0;          // masses, if the file has them
@@ -1459,13 +1463,16 @@
     }
     plateCache={key,canvas:cvp}; return cvp;
   }
-  function drawBuilt(rect, noPlate){
+  function drawBuilt(rect, flat){
+    // flat = the Transparent overlay: plain translucent color, NO plate, NO shadow, NO bevel strokes.
+    // A 32x32 lattice of per-tile shadows dimmed the photo underneath into invisibility (Glen, 2026-07-26).
     const f=rect||frame, gw=built.gw, gh=built.gh, idx=built.idx, cw=f.w/gw, ch=f.h/gh;
-    if(showPlate && !noPlate) ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
+    if(showPlate && !flat) ctx.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,f.w,f.h), f.x, f.y, f.w, f.h);   // studded baseplate
     const inset=Math.max(0.5, Math.min(cw,ch)*0.05);                                     // thin seam between tiles
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
       const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;
       const x=f.x+c*cw+inset, y=f.y+r*ch+inset, w=cw-2*inset, h=ch-2*inset;
+      if(flat){ ctx.fillStyle="rgb("+col.join(",")+")"; ctx.fillRect(x,y,w,h); continue; }
       ctx.fillStyle="rgba(0,0,0,0.22)"; ctx.fillRect(x+1.2,y+1.6,w,h);                   // drop shadow -> raised
       ctx.fillStyle="rgb("+col.join(",")+")"; ctx.fillRect(x,y,w,h);                     // the tile
       ctx.strokeStyle="rgba(255,255,255,0.30)"; ctx.lineWidth=1;
@@ -1500,6 +1507,7 @@
     $("bSeeThru").classList.toggle("on", seeThrough && built);
     $("bChart").disabled=!built;                            // Print needs a built mosaic (same as Save image)
     $("bClearMosaic").disabled=!built;
+    $("seeRow").style.display=(seeThrough&&built)?"":"none"; // the Transparency slider only means something in Transparent mode
     $("bFitGrid").disabled=(layers.length===0);             // needs a photo to fit the grid to
   }
 
@@ -1507,6 +1515,8 @@
   $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough;
     $("status").textContent = seeThrough ? "Transparent: the photo shows through the translucent tiles. Toggle it off for solid tiles." : "Solid tiles."; render(); };
   $("bChart").onclick = printMosaic;
+  // Slider reads as "how transparent": more = more photo, so tile opacity is the complement.
+  $("optSee").addEventListener("input", ()=>{ seeAlpha=1-(+$("optSee").value)/100; render(); });
   // One undoable step: every filled cell -> empty. Photos, palette, grid, and masses are untouched,
   // so Ctrl-Z restores the whole mosaic exactly (mass membership lives in grp[], not in the cells).
   $("bClearMosaic").onclick=()=>{
