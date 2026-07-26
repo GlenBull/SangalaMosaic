@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.66 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.67 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1465,14 +1465,23 @@
     // 4. clean up (two gentle passes): kill speckle, fill pinholes, drop lone strays
     if(doClean){ idx=cleanup(idx,gw,gh); idx=cleanup(idx,gw,gh); }
     const counts={}; for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const v=idx[r][c]; if(v>=0) counts[v]=(counts[v]||0)+1; }
-    built={gw,gh,idx,counts}; clearHistory();   // a fresh build starts a clean undo history
+    // A re-map over an existing same-size mosaic is ONE undo step - the whole previous grid comes back
+    // with Ctrl-Z. It used to clearHistory() here, which made a slider nudge silently destroy a
+    // hand-mapped design with no way back (Glen lost one to the Contrast slider, 2026-07-26).
+    const prev=built; let remapNote="";
+    built={gw,gh,idx,counts};
+    if(prev && prev.gw===gw && prev.gh===gh){
+      const edits=[];
+      for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const b=prev.idx[r][c], a=idx[r][c]; if(b!==a) edits.push({r,c,before:b,after:a}); }
+      if(edits.length){ undoStack.push({t:"cells",edits}); redoStack.length=0; remapNote=" Ctrl-Z brings the previous mosaic back."; }
+    } else clearHistory();                      // a different grid size: cell edits cannot map across
     if(grp && (grpW!==gw || grpH!==gh)){ grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0; }   // same grid size -> masses survive a re-map; a different one cannot
     renderBOM(); renderMasses(); render();
     const tiled=Object.values(counts).reduce((a,b)=>a+b,0);
     const rows=tileRows(), top=rows[0];
     $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+rows.length+" colors"
       + (top ? ", most of any one color "+top.n+" ("+PALETTE[top.i].name+")" : "")
-      + ". Save > Tile list writes the counts out.";
+      + ". Save > Tile List writes the counts out." + remapNote;
   }
 
   // The studded baseplate, drawn once per (grid, color, size) and reused - a stud on every cell (tiles cover
