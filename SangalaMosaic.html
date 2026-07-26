@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.65 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.66 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -107,6 +107,7 @@
   .ebtn:disabled{opacity:.45;cursor:default;box-shadow:none}
   .ebtn.on{background:linear-gradient(#bfe3ff,#8fcaf5);border-color:#3f8fd0;color:#123}   /* pressed / active toggle */
   .sw{width:26px;height:26px;border-radius:5px;border:2px solid #b9a67f;cursor:pointer;box-shadow:inset 0 1px 2px rgba(255,255,255,.35)}
+  .swnone{display:flex;align-items:center;justify-content:center;background:#fff;color:#c11;font-weight:800;font-size:15px;line-height:1}
   /* A color you don't own must still LOOK like itself - fading and graying it made every real LEGO color
      read as a pastel, so a palette with most colors off looked like a different tile set entirely.
      Mark absence structurally instead: true hue, a dashed edge, and a slash across it. */
@@ -968,6 +969,27 @@
       };
       (p.fromPhoto ? pbox : box).appendChild(s);    // tiles read from a photo keep their own set
     });
+    // The None swatch: a red X meaning "no tile in the cell". Clicking it clears a selection or a
+    // mass the way a color recolors one, and in a painting tool it switches to Erase. Not a color,
+    // so it cannot be owned - the ownership editor hides it.
+    const none=document.createElement("div"); none.dataset.i=-1; none.textContent="✕";
+    none.onclick=()=>{
+      if(ownMode) return;
+      if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){
+        if(activeTool!=="erase") setTool("erase");
+        $("status").textContent="Erasing — click or drag cells to clear them. Ctrl+Z undoes."; return;
+      }
+      if(built && tileTool() && selCells.size){
+        const n=recolorCells(selList(),-1); renderMasses(); render();
+        $("status").textContent = n ? (n+" tile"+(n>1?"s":"")+" cleared. Ctrl+Z undoes.") : "Those cells were already empty."; return;
+      }
+      if(built && tileTool() && selMass && massById(selMass)){
+        const m=massById(selMass), n=recolorCells(massCells(selMass),-1); renderMasses(); render();
+        $("status").textContent = n ? (m.name+" cleared ("+n+" tile"+(n>1?"s":"")+"). Ctrl+Z undoes.") : (m.name+" was already empty."); return;
+      }
+      $("status").textContent="None — select tiles (Tiles or Wand) and click the ✕ to clear them, or use the Erase tool.";
+    };
+    box.prepend(none);
     const nPhoto=PALETTE.filter(p=>p.fromPhoto).length;
     $("photoset").style.display = nPhoto ? "" : "none";
     $("stdsetlabel").style.display = nPhoto ? "" : "none";
@@ -979,7 +1001,15 @@
     const recolor = !!(built && tileTool() && (selCells.size || (selMass && massById(selMass))));
     const nOwn=PALETTE.filter(q=>q.own).length;
     const swAll=[...$("swphoto").children, ...$("swatches").children];   // both sets: Custom Tiles and Standard
-    swAll.forEach(s=>{ const i=+s.dataset.i, p=PALETTE[i];
+    swAll.forEach(s=>{ const i=+s.dataset.i;
+      if(i<0){                                                          // the None (red X) swatch
+        s.style.display = ownMode ? "none" : "";
+        s.className="sw swnone"+(activeTool==="erase"?" cur":"");
+        s.title = recolor ? "None — click to clear the selected tiles"
+                          : "None — empty cell; click to erase";
+        return;
+      }
+      const p=PALETTE[i];
       // Outside the ownership editor the palette shows ONLY the tiles you own. A color you dropped is gone,
       // not sitting there slashed - that was clutter. The full set of 27 appears only inside the editor,
       // which is the one place a click can add or drop a color.
