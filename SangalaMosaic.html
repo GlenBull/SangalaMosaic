@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.70 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.71 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -165,7 +165,7 @@
     <button class="ltbtn" id="tPaint" title="Paint: after Build, click or drag cells to set their color by hand (Ctrl+Z undoes)">🖌️<small>Paint</small></button>
     <button class="ltbtn" id="tPick"  title="Pick: click a cell to grab its color to paint with">💧<small>Pick</small></button>
     <button class="ltbtn" id="tErase" title="Erase: after Build, click or drag cells to clear them back to empty (Ctrl+Z undoes)">🧽<small>Erase</small></button>
-    <button class="ltbtn" id="tTiles" title="Sweep: drag a box to select the tiles inside it, whatever color they are. Shift-click a tile to add or drop it; Alt removes; Ctrl-D deselects">⬚<small>Sweep</small></button>
+    <button class="ltbtn" id="tTiles" title="Select Area: drag a box to select the tiles inside it, whatever color they are. Shift-click a tile to add or drop it; Alt removes; Ctrl-D deselects">⬚<small>Select Area</small></button>
     <button class="ltbtn" id="tWand"  title="Magic wand: click a tile to select the whole connected run of that color. Shift adds, Alt removes, Ctrl-D deselects">🪄<small>Wand</small></button>
   </div>
 
@@ -213,7 +213,7 @@
          while grouping, this is the information the student is reading, so it must not be a scroll away. -->
     <div id="masspanel" style="display:none;margin-top:.6rem;border-top:1px solid #d8c4a0;padding-top:.5rem">
       <h2 class="marker sub" style="margin-top:0">Masses — The Parts of Your Animal</h2>
-      <div class="hint" id="masshint" style="margin-top:0">Select tiles with Sweep or the Wand, then
+      <div class="hint" id="masshint" style="margin-top:0">Select tiles with Select Area or the Wand, then
         Group them into a mass — the head, a wing, a leg. <b>Shift-click a tile to add it, or to drop it if it
         is already selected.</b> Shift-drag adds a box, Alt removes, Ctrl-D deselects everything. With tiles
         selected, click a palette color to recolor them all at once.</div>
@@ -322,7 +322,7 @@
   let grpW = 0, grpH = 0;  // the grid `grp` was made for; a grid-size change invalidates it
   let masses = [];       // [{id, name}] in creation order
   let massSeq = 0, selMass = 0;
-  // Selecting tiles and grouping them are separate steps, as they are in Sangala Studio: the Sweep box and
+  // Selecting tiles and grouping them are separate steps, as they are in Sangala Studio: the Select Area box and
   // the Wand are two different tools that both build ONE live selection; Group then turns it into a mass.
   let selCells = new Set();   // cell keys r*grpW+c currently selected
   let gdrag = null;           // active marquee: {r0,c0,r,c,mode:"replace"|"add"|"remove"}
@@ -994,7 +994,7 @@
         const m=massById(selMass), n=recolorCells(massCells(selMass),-1); renderMasses(); render();
         $("status").textContent = n ? (m.name+" cleared ("+n+" tile"+(n>1?"s":"")+"). Ctrl+Z undoes.") : (m.name+" was already empty."); return;
       }
-      $("status").textContent="None — select tiles (Sweep or Wand) and click the ✕ to clear them, or use the Erase tool.";
+      $("status").textContent="None — select tiles (Select Area or Wand) and click the ✕ to clear them, or use the Erase tool.";
     };
     box.prepend(none);
     const nPhoto=PALETTE.filter(p=>p.fromPhoto).length;
@@ -1140,7 +1140,7 @@
     refreshSwatches(); render();
     if(t==="select") $("status").textContent = "Select: click a mass to reselect its tiles, or click the photo or the grid to pick it up and drag it.";
     else if(t==="tiles") $("status").textContent = built
-      ? "Sweep: drag a box over the tiles you want, whatever color they are. Shift-click a tile to add it or drop it, Alt removes, Ctrl-D deselects. Then press Group."
+      ? "Select Area: drag a box over the tiles you want, whatever color they are. Shift-click a tile to add it or drop it, Alt removes, Ctrl-D deselects. Then press Group."
       : "Build a mosaic first — then select its tiles and group them into the parts of your animal.";
     else if(t==="wand") $("status").textContent = built
       ? "Magic wand: click a tile to select the whole connected run of that color. Shift adds another run, Alt removes, Ctrl-D deselects. Then press Group."
@@ -1234,7 +1234,7 @@
     commitStroke(); renderBOM();
     return n;
   }
-  // ---- the live tile selection, fed by BOTH the Sweep box and the Wand ----
+  // ---- the live tile selection, fed by BOTH the Select Area box and the Wand ----
   const selList = () => [...selCells].map(k=>({r:Math.floor(k/grpW), c:k%grpW}));
   function applySel(cells, mode){                              // replace | add | remove
     if(mode==="replace") selCells.clear();
@@ -1279,7 +1279,7 @@
     $("status").textContent = m.name+" updated: "+b.n+" tiles, "+b.w+" × "+b.h+" studs. Ctrl+Z undoes.";
   }
   function groupSelection(){                                   // Group: the selected tiles become one named mass
-    if(!built || !selCells.size){ $("status").textContent="Select some tiles first — drag a Sweep box, or click with the Wand."; return; }
+    if(!built || !selCells.size){ $("status").textContent="Select some tiles first — drag a Select Area box, or click with the Wand."; return; }
     const cells=selList(), id=newMass(), n=assignCells(cells, id);
     clearSel(); renderMasses(); render();
     const m=massById(id), b=massBox(id);
