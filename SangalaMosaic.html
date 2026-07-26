@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.67 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.68 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -734,6 +734,11 @@
     $("optSee").value=Math.round(100*(1-seeAlpha));
     syncShow();
     frame=p.frame||null; built=p.built||null; setTool("select");
+    if(built && !built.src){                                        // an older save: every tile is its own source
+      built.src=new Array(built.gw*built.gh).fill(null);
+      for(let r=0;r<built.gh;r++) for(let c=0;c<built.gw;c++){ const v=built.idx[r][c];
+        if(v>=0) built.src[r*built.gw+c]=PALETTE[v].rgb.slice(); }
+    }
     grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0;          // masses, if the file has them
     if(built && p.grp && p.grpW===built.gw && p.grpH===built.gh && p.grp.length===built.gw*built.gh){
       grp=Int32Array.from(p.grp); grpW=p.grpW; grpH=p.grpH;
@@ -1153,6 +1158,7 @@
     if(curStroke){ const k=r*built.gw+c, e=curStroke.get(k);   // remember this cell's pre-stroke value (net change per cell)
       if(e) e.after=t; else curStroke.set(k,{r,c,before:old,after:t}); }
     built.idx[r][c]=t;
+    if(built.src) built.src[r*built.gw+c] = t>=0 ? PALETTE[t].rgb.slice() : null;   // a placed tile IS its own source color
     if(old>=0 && --built.counts[old]<=0) delete built.counts[old];
     if(t>=0) built.counts[t]=(built.counts[t]||0)+1;
     return true;
@@ -1452,7 +1458,8 @@
         R+=d[p]; G+=d[p+1]; B+=d[p+2]; n++;
       }
       if(!n) continue;
-      const ci=r*gw+c, col=[adj(R/n),adj(G/n),adj(B/n)]; cellCol[ci]=col; pts.push(col); ptCell.push(ci);
+      const ci=r*gw+c, raw=[R/n,G/n,B/n]; cellCol[ci]=raw;                 // raw: the sliders re-adjust from this later
+      pts.push([adj(raw[0]),adj(raw[1]),adj(raw[2])]); ptCell.push(ci);
     }
     // 3. reduce to K coherent colors (k-means on the cell colors), snap each group to its nearest OWNED tile
     const cellTile=new Array(gw*gh).fill(-1);
@@ -1465,11 +1472,17 @@
     // 4. clean up (two gentle passes): kill speckle, fill pinholes, drop lone strays
     if(doClean){ idx=cleanup(idx,gw,gh); idx=cleanup(idx,gw,gh); }
     const counts={}; for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const v=idx[r][c]; if(v>=0) counts[v]=(counts[v]||0)+1; }
+    // Per-cell SOURCE color: the raw sampled color for photo cells; where cleanup filled a hole, the
+    // tile's own color. The Adjust Mosaic sliders re-map every FILLED cell from src (retile) - they
+    // never resample the photo, so hand-placed tiles are adjusted too, and no cell can go empty.
+    const src=new Array(gw*gh).fill(null);
+    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const ci=r*gw+c, v=idx[r][c];
+      if(v>=0) src[ci]=cellCol[ci]?cellCol[ci].slice():PALETTE[v].rgb.slice(); }
     // A re-map over an existing same-size mosaic is ONE undo step - the whole previous grid comes back
     // with Ctrl-Z. It used to clearHistory() here, which made a slider nudge silently destroy a
     // hand-mapped design with no way back (Glen lost one to the Contrast slider, 2026-07-26).
     const prev=built; let remapNote="";
-    built={gw,gh,idx,counts};
+    built={gw,gh,idx,counts,src};
     if(prev && prev.gw===gw && prev.gh===gh){
       const edits=[];
       for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const b=prev.idx[r][c], a=idx[r][c]; if(b!==a) edits.push({r,c,before:b,after:a}); }
@@ -1482,6 +1495,46 @@
     $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+rows.length+" colors"
       + (top ? ", most of any one color "+top.n+" ("+PALETTE[top.i].name+")" : "")
       + ". Save > Tile List writes the counts out." + remapNote;
+  }
+
+  // ---- retile: the Adjust Mosaic sliders, applied to the mosaic AS IT STANDS ----
+  // Contrast, Brightness, and Colors re-map every FILLED cell from its source color (built.src) to the
+  // nearest palette color. No photo resampling: hand-placed tiles are adjusted along with mapped ones,
+  // empty cells stay empty, filled cells stay filled - a slider can never make tiles go away.
+  function retile(){
+    if(!built||!built.src) return;
+    const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb})).filter(o=>PALETTE[o.i].own);
+    if(!owned.length) return;
+    const contrast=+$("optContrast").value, bright=+$("optBright").value;
+    const cf=1+contrast/100, bAdd=bright*1.28, adj=v=>{ v=(v-128)*cf+128+bAdd; return v<0?0:v>255?255:v; };
+    const K=Math.min(+$("optColors").value, owned.length);
+    const pts=[], cells=[];
+    for(let r=0;r<built.gh;r++) for(let c=0;c<built.gw;c++){
+      const s=built.src[r*built.gw+c]; if(!s) continue;
+      pts.push([adj(s[0]),adj(s[1]),adj(s[2])]); cells.push({r,c});
+    }
+    if(!pts.length) return;
+    const km=kmeans(pts, Math.max(1,Math.min(K,pts.length)));
+    const clusterTile=km.centroids.map(cn=>nearestOwned(cn,owned).i);
+    for(let i=0;i<cells.length;i++){
+      const {r,c}=cells[i], t=clusterTile[km.assign[i]], old=built.idx[r][c];
+      if(old===t) continue;
+      built.idx[r][c]=t;                                              // NOT setCell: src must stay the raw source
+      if(old>=0 && --built.counts[old]<=0) delete built.counts[old];
+      built.counts[t]=(built.counts[t]||0)+1;
+    }
+    renderBOM(); render();
+  }
+  // One undo step per slider gesture: snapshot on the first tick, diff on release.
+  let tuneSnap=null;
+  function tuneStart(){ if(built && !tuneSnap) tuneSnap=built.idx.map(row=>row.slice()); }
+  function tuneEnd(){
+    if(!built||!tuneSnap){ tuneSnap=null; return; }
+    const edits=[];
+    for(let r=0;r<built.gh;r++) for(let c=0;c<built.gw;c++){ const b=tuneSnap[r][c], a=built.idx[r][c]; if(b!==a) edits.push({r,c,before:b,after:a}); }
+    if(edits.length){ undoStack.push({t:"cells",edits}); redoStack.length=0;
+      $("status").textContent=edits.length+" tile"+(edits.length>1?"s":"")+" adjusted. Ctrl-Z undoes the whole adjustment."; }
+    tuneSnap=null;
   }
 
   // The studded baseplate, drawn once per (grid, color, size) and reused - a stud on every cell (tiles cover
@@ -1629,9 +1682,18 @@
   };
   cv.addEventListener("contextmenu", e=>{ if(activeTool==="paint"||activeTool==="erase") e.preventDefault(); });   // right-click = erase, no menu
   $("colorsVal").textContent=$("optColors").value;
-  ["optIgnoreBg","optColors","optClean","optContrast","optBright"].forEach(id=>$(id).addEventListener("input", ()=>{
-    $("colorsVal").textContent=$("optColors").value;
-    if(built) build();   // live re-map once a mosaic exists
+  // Colors / Contrast / Brightness adjust the mosaic AS IT STANDS (retile from source colors) - never a
+  // photo re-map, so hand-placed tiles survive and are adjusted too. Ignore background and Clean up are
+  // Build-time choices: they shape how the photo is mapped, so they apply at the next Build It!.
+  ["optColors","optContrast","optBright"].forEach(id=>{
+    $(id).addEventListener("input", ()=>{
+      $("colorsVal").textContent=$("optColors").value;
+      if(built){ tuneStart(); retile(); }
+    });
+    $(id).addEventListener("change", tuneEnd);
+  });
+  ["optIgnoreBg","optClean"].forEach(id=>$(id).addEventListener("input", ()=>{
+    if(built) $("status").textContent="Applies the next time Build It! maps the photo.";
   }));
   buildSwatches(); buildBaseplates(); syncShow(); renderMasses();
   $("tSelect").classList.add("on");        // Select is the mode the app opens in
