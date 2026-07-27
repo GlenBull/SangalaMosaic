@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.73 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.74 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -161,7 +161,7 @@
   <div class="ltools">
     <div class="ltitle marker">Tools</div>
     <!-- the same arrow Sangala Studio uses for Select, so the two tools look alike as well as behave alike -->
-    <button class="ltbtn on" id="tSelect" title="Select / move (normal mode) — click a mass to reselect its tiles, or pick up the photo or the grid"><svg width="21" height="21" viewBox="0 0 24 24" style="display:block" aria-hidden="true"><path d="M5.5 3.2 L5.5 20.5 L9.8 16.5 L12.5 22.5 L15 21.3 L12.3 15.5 L18.2 15.5 Z" fill="#fff" stroke="#5a2f10" stroke-width="1.7" stroke-linejoin="round"/></svg><small>Select</small></button>
+    <button class="ltbtn on" id="tSelect" title="Select / move (normal mode) — click a part to reselect its tiles, or pick up the photo or the grid"><svg width="21" height="21" viewBox="0 0 24 24" style="display:block" aria-hidden="true"><path d="M5.5 3.2 L5.5 20.5 L9.8 16.5 L12.5 22.5 L15 21.3 L12.3 15.5 L18.2 15.5 Z" fill="#fff" stroke="#5a2f10" stroke-width="1.7" stroke-linejoin="round"/></svg><small>Select</small></button>
     <button class="ltbtn" id="tPaint" title="Paint: after Build, click or drag cells to set their color by hand (Ctrl+Z undoes)">🖌️<small>Paint</small></button>
     <button class="ltbtn" id="tPick"  title="Pick: click a cell to grab its color to paint with">💧<small>Pick</small></button>
     <button class="ltbtn" id="tErase" title="Erase: after Build, click or drag cells to clear them back to empty (Ctrl+Z undoes)">🧽<small>Erase</small></button>
@@ -213,15 +213,15 @@
     <!-- Masses sits HIGH and appears only while it is wanted (same pattern as "Selected image" above):
          while grouping, this is the information the student is reading, so it must not be a scroll away. -->
     <div id="masspanel" style="display:none;margin-top:.6rem;border-top:1px solid #d8c4a0;padding-top:.5rem">
-      <h2 class="marker sub" style="margin-top:0">Masses — The Parts of Your Animal</h2>
+      <h2 class="marker sub" style="margin-top:0">Parts of Your Animal</h2>
       <div class="hint" id="masshint" style="margin-top:0">Select tiles with Select Area or the Wand, then
-        Group them into a mass — the head, a wing, a leg. <b>Shift-click a tile to add it, or to drop it if it
+        Group them into a part — the head, a wing, a leg. <b>Shift-click a tile to add it, or to drop it if it
         is already selected.</b> Shift-drag adds a box, Alt removes, Ctrl-D deselects everything. With tiles
         selected, click a palette color to recolor them all at once.</div>
       <label class="fld" id="wandRow" style="display:none;margin-top:.45rem" title="How similar a neighboring tile must be to join the Wand's selection — at 0, only tiles of the clicked color">Similar Colors<input type="range" id="optWand" min="0" max="100" value="0" style="width:100%"></label>
       <div id="selinfo" style="margin-top:.45rem;font-size:.85rem;color:#5a4a34"></div>
       <div class="two" style="margin-top:.35rem">
-        <button class="ebtn" id="bGroup" title="Make the selected tiles into one named mass">Group</button>
+        <button class="ebtn" id="bGroup" title="Make the selected tiles into one named part">Group</button>
         <button class="ebtn" id="bDesel" title="Deselect (Ctrl-D)">Deselect</button>
       </div>
       <div id="masslist" style="margin-top:.5rem"></div>
@@ -496,7 +496,7 @@
       if(id && loadMassIntoSel(id)){
         sel=null; renderMasses(); render();
         const m=massById(id), b=massBox(id);
-        $("status").textContent = m.name+" reselected: "+b.n+" tiles, "+b.w+" × "+b.h+" studs. Shift-click tiles to change it, then press Update Mass. Ctrl-D deselects.";
+        $("status").textContent = m.name+" reselected: "+b.n+" tiles, "+b.w+" × "+b.h+" studs. Shift-click tiles to change it, then press Update Part. Ctrl-D deselects.";
         e.preventDefault(); return;
       }
       if(selCells.size || selMass){                  // clicking off a selection deselects it, then behaves normally
@@ -545,7 +545,7 @@
       renderMasses(); render();
       const sb=selBox();
       $("status").textContent = sb.n
-        ? (sb.n+" tile"+(sb.n>1?"s":"")+" selected ("+sb.w+" × "+sb.h+" studs). Shift-click a tile to add or drop it. Press Group to make them a mass, or click a palette color to recolor them.")
+        ? (sb.n+" tile"+(sb.n>1?"s":"")+" selected ("+sb.w+" × "+sb.h+" studs). Shift-click a tile to add or drop it. Press Group to make them a part, or click a palette color to recolor them.")
         : "Nothing selected. Ctrl-D deselects at any time.";
       return;
     }
@@ -769,7 +769,7 @@
     grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0;          // masses, if the file has them
     if(built && p.grp && p.grpW===built.gw && p.grpH===built.gh && p.grp.length===built.gw*built.gh){
       grp=Int32Array.from(p.grp); grpW=p.grpW; grpH=p.grpH;
-      masses=Array.isArray(p.masses)?p.masses.map(m=>({id:m.id, name:m.name||("Mass "+m.id)})):[];
+      masses=Array.isArray(p.masses)?p.masses.map(m=>({id:m.id, name:m.name||("Part "+m.id)})):[];
       massSeq=p.massSeq||masses.reduce((a,m)=>Math.max(a,m.id),0);
       pruneMasses();
     }
@@ -1163,7 +1163,7 @@
     renderMasses();
     if(t==="paint"||t==="pick"||t==="erase"){ cv.style.cursor="cell"; } else if(tileTool()){ cv.style.cursor=built?"crosshair":"default"; } else cv.style.cursor="default";
     refreshSwatches(); render();
-    if(t==="select") $("status").textContent = "Select: click a mass to reselect its tiles, or click the photo or the grid to pick it up and drag it.";
+    if(t==="select") $("status").textContent = "Select: click a part to reselect its tiles, or click the photo or the grid to pick it up and drag it.";
     else if(t==="tiles") $("status").textContent = built
       ? "Select Area: drag a box over the tiles you want, whatever color they are. Shift-click a tile to add it or drop it, Alt removes, Ctrl-D deselects. Then press Group."
       : "Build a mosaic first — then select its tiles and group them into the parts of your animal.";
@@ -1251,7 +1251,7 @@
     masses = masses.filter(m=>live.has(m.id));
     if(selMass && !live.has(selMass)) selMass = masses.length ? masses[masses.length-1].id : 0;
   }
-  function newMass(){ const id=++massSeq; masses.push({id, name:"Mass "+id}); selMass=id; return id; }
+  function newMass(){ const id=++massSeq; masses.push({id, name:"Part "+id}); selMass=id; return id; }   // default display name says Part (Glen 2026-07-26: "Part" on both sides); internals and the save keys keep the mass naming
   function recolorCells(cells, ti){                            // the one-click part: paint a whole selection or mass
     if(!cells.length) return 0;
     curStroke=new Map();
@@ -1321,24 +1321,24 @@
          + (editing ? ' · editing <b>'+massById(selMass).name+'</b>' : ''))
       : (editing ? ('<b>'+massById(selMass).name+'</b> is highlighted — click it, or its row, to select its tiles')
                  : 'Nothing selected.');
-    $("bGroup").textContent = (sb.n && editing) ? "Update Mass" : "Group";
+    $("bGroup").textContent = (sb.n && editing) ? "Update Part" : "Group";
     $("bGroup").title = (sb.n && editing) ? "Make "+massById(selMass).name+" hold exactly the selected tiles"
-                                          : "Make the selected tiles into one new named mass";
+                                          : "Make the selected tiles into one new named part";
     $("bGroup").disabled = !sb.n;
     $("bDesel").disabled = !(sb.n || selMass);
-    if(!built || !masses.length){ box.innerHTML='<div class="hint" style="margin-top:.2rem">No masses yet.</div>'; return; }
+    if(!built || !masses.length){ box.innerHTML='<div class="hint" style="margin-top:.2rem">No parts yet.</div>'; return; }
     let h='<table style="border-collapse:collapse;width:100%;font-size:.85rem">';
     masses.forEach(m=>{
       const b=massBox(m.id), on=(m.id===selMass);
       h+='<tr data-mid="'+m.id+'" class="massrow" style="cursor:pointer;'+(on?'background:rgba(26,95,180,.12)':'')+'">'
         +'<td style="padding:2px 4px">'+(on?'▸':' ')+'</td>'
-        +'<td style="padding:2px 4px"><span class="massname" data-mid="'+m.id+'" title="Click the row to select this mass; double-click the name to rename it">'+m.name+'</span></td>'
+        +'<td style="padding:2px 4px"><span class="massname" data-mid="'+m.id+'" title="Click the row to select this part; double-click the name to rename it">'+m.name+'</span></td>'
         +'<td style="padding:2px 4px;text-align:right;font-variant-numeric:tabular-nums">'+b.w+'×'+b.h+'</td>'
         +'<td style="padding:2px 4px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums">'+b.n+'</td>'
         +'<td style="padding:2px 4px;text-align:right"><span class="massdel" data-mid="'+m.id+'" title="Ungroup: give these tiles back" style="cursor:pointer;color:#a33">✕</span></td></tr>';
     });
     h+='</table><div class="hint" style="margin-top:.3rem">Columns: name, studs across × down, tiles. '
-      +'With a mass selected, click a palette color to recolor the whole mass at once.</div>';
+      +'With a part selected, click a palette color to recolor the whole part at once.</div>';
     box.innerHTML=h;
     // Clicking anywhere on the row - the NAME included - selects that mass. Renaming moved to a double-click,
     // because the name is the obvious thing to click when you want the mass.
@@ -1347,14 +1347,14 @@
       const id=+tr.getAttribute("data-mid");
       loadMassIntoSel(id); renderMasses(); render();          // reselect it: its tiles come back as the selection
       const m=massById(id), b=massBox(id);
-      $("status").textContent = m.name+" reselected: "+b.n+" tiles. Shift-click tiles to change it, then press Update Mass. Ctrl-D deselects."; });
+      $("status").textContent = m.name+" reselected: "+b.n+" tiles. Shift-click tiles to change it, then press Update Part. Ctrl-D deselects."; });
     [...box.querySelectorAll(".massname")].forEach(sp=>sp.ondblclick=e=>{
       e.stopPropagation(); const m=massById(+sp.getAttribute("data-mid")); if(!m) return;
-      const v=prompt("Name this mass (head, wing, near leg …)", m.name); if(v!=null && v.trim()){ m.name=v.trim(); renderMasses(); render(); } });
+      const v=prompt("Name this part (head, wing, near leg …)", m.name); if(v!=null && v.trim()){ m.name=v.trim(); renderMasses(); render(); } });
     [...box.querySelectorAll(".massdel")].forEach(sp=>sp.onclick=e=>{
       e.stopPropagation(); const id=+sp.getAttribute("data-mid");
       assignCells(massCells(id), 0); renderMasses(); render();
-      $("status").textContent="Ungrouped — those tiles belong to no mass now. Ctrl+Z puts it back."; });
+      $("status").textContent="Ungrouped — those tiles belong to no part now. Ctrl+Z puts it back."; });
   }
   // Outlines, drawn only while grouping (or when a mass is selected) so the mosaic reads normally otherwise.
   function drawMasses(f){
@@ -1407,7 +1407,7 @@
     if(!grp) return;
     for(const ch of changes) grp[ch.k] = useBefore ? ch.before : ch.after;
     const seen=new Set(); for(let i=0;i<grp.length;i++) if(grp[i]) seen.add(grp[i]);
-    for(const id of seen) if(!massById(id)){ masses.push({id, name:"Mass "+id}); if(id>massSeq) massSeq=id; }   // an undone ungroup brings its mass back
+    for(const id of seen) if(!massById(id)){ masses.push({id, name:"Part "+id}); if(id>massSeq) massSeq=id; }   // an undone ungroup brings its part back
     pruneMasses();
   }
   const stepOf = e => Array.isArray(e) ? {t:"cells", edits:e} : e;   // tolerate history written before masses existed
