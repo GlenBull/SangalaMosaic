@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-26.74 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-27.75 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -619,6 +619,21 @@
     $("projName").style.display = projectName ? "" : "none";
     document.title = projectName ? projectName + " — Sangala Mosaic" : "Sangala Mosaic";
   }
+  /* Read the file back and confirm the bytes landed. Choosing a name in the Save dialog CREATES the
+     file immediately, at zero bytes; the contents only arrive when close() completes. If anything
+     interrupts the write in between, the result is a real, findable, EMPTY file — and close()
+     resolving is NOT proof it worked. Sangala Studio announced "Saved" on that assumption and Glen
+     lost an evening's work to a 0-byte model on 2026-07-27; a .mosaic carries its photos inside it,
+     so the writes here are far larger and the window for that is wider. Returns a complaint, or ""
+     when the file is good. */
+  async function writeShortfall(handle, expected){
+    try{
+      const back = await handle.getFile();
+      if(back.size >= expected) return "";
+      return "SAVE DID NOT COMPLETE — " + handle.name + " holds " + back.size + " of " + expected
+           + " bytes. Nothing here is lost: your mosaic is still open. Try Save again, and to somewhere local if that folder is on a network or a synced drive.";
+    }catch(e){ return ""; }      // cannot read it back: say nothing rather than cry wolf
+  }
   async function saveProject(){
     const proj={ app:"Sangala Mosaic", v:1, grid:{gw:gW(),gh:gH()}, frame,
       layers: layers.map(L=>({ src:imgToDataURL(L.img), x:L.x, y:L.y, w:L.w, h:L.h, bgRemoved:!!L.bgRemoved })),
@@ -632,9 +647,12 @@
     const suggested = projectName ? projectName+".mosaic" : "Mosaic project.mosaic";   // default the Save dialog to the open project's name
     if(window.showSaveFilePicker){                         // native Save As (choose folder + name), same as Sangala Studio
       let h; try{ h=await window.showSaveFilePicker({ suggestedName:suggested,
-        types:[{description:"Sangala Mosaic project",accept:{"application/octet-stream":[".mosaic"]}}] }); }   // octet-stream so the dialog shows only *.mosaic (not *.json)
+        types:[{description:"Sangala Mosaic project",accept:{"application/x-sangala-mosaic":[".mosaic"]}}] }); }   // a type of our own owns nothing but .mosaic. "application/octet-stream" was meant to hide *.json, but it owns .com/.exe/.bin too, so the filter offered to save your mosaic as an executable
       catch(e){ if(e&&e.name==="AbortError") return; $("status").textContent="Could not open the Save dialog: "+e.message; return; }
-      try{ const ws=await h.createWritable(); await ws.write(blob); await ws.close(); setProjectName(h.name); $("status").textContent="Saved "+h.name+". Reopen it any time with Open."; }
+      try{ const ws=await h.createWritable(); await ws.write(blob); await ws.close();
+        const bad=await writeShortfall(h, blob.size);
+        if(bad){ $("status").textContent=bad; return; }
+        setProjectName(h.name); $("status").textContent="Saved "+h.name+". Reopen it any time with Open."; }
       catch(e){ $("status").textContent="Save failed: "+e.message; }
       return;
     }
@@ -706,7 +724,9 @@
       catch(e){ if(e&&e.name==="AbortError") return; $("status").textContent="Could not open the Save dialog: "+e.message; return; }
       const type=/\.jpe?g$/i.test(h.name)?"image/jpeg":"image/png";
       const blob=await makeBlob(type);
-      try{ const ws=await h.createWritable(); await ws.write(blob); await ws.close(); $("status").textContent="Saved "+h.name+"."; }
+      try{ const ws=await h.createWritable(); await ws.write(blob); await ws.close();
+        const bad=await writeShortfall(h, blob.size);
+        $("status").textContent = bad || ("Saved "+h.name+"."); }
       catch(e){ $("status").textContent="Save failed: "+e.message; }
       return;
     }
@@ -813,7 +833,8 @@
         types:[{description:"Tile list",accept:{"text/plain":[".txt"]}}] }); }
       catch(e){ if(e&&e.name==="AbortError") return; $("status").textContent="Could not open the Save dialog: "+e.message; return; }
       try{ const ws=await h.createWritable(); await ws.write(blob); await ws.close();
-        $("status").textContent="Saved "+h.name+" — "+total+" tiles in "+rows.length+" colors."; }
+        const bad=await writeShortfall(h, blob.size);
+        $("status").textContent = bad || ("Saved "+h.name+" — "+total+" tiles in "+rows.length+" colors."); }
       catch(e){ $("status").textContent="Save failed: "+e.message; }
       return;
     }
