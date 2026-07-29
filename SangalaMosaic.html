@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-27.75 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-29.76 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1337,9 +1337,12 @@
     $("masspanel").style.display = (tileTool() || (built && masses.length)) ? "" : "none";
     const sb=selBox();
     const editing = selMass && massById(selMass);
+    // Each clause wraps as a unit. Without this the line broke between "editing" and the part's name,
+    // stranding "Wing" alone on the next line - and the name is the one word being reported.
+    const nb = s => '<span style="white-space:nowrap">'+s+'</span>';
     $("selinfo").innerHTML = sb.n
-      ? ('<b>'+sb.n+' tile'+(sb.n>1?'s':'')+' selected</b> · '+sb.w+' × '+sb.h+' studs'
-         + (editing ? ' · editing <b>'+massById(selMass).name+'</b>' : ''))
+      ? (nb('<b>'+sb.n+' tile'+(sb.n>1?'s':'')+' selected</b>')+' · '+nb(sb.w+' × '+sb.h+' studs')
+         + (editing ? ' · '+nb('editing <b>'+massById(selMass).name+'</b>') : ''))
       : (editing ? ('<b>'+massById(selMass).name+'</b> is highlighted — click it, or its row, to select its tiles')
                  : 'Nothing selected.');
     $("bGroup").textContent = (sb.n && editing) ? "Update Part" : "Group";
