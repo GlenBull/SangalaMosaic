@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-31.77 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-31.78 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -321,7 +321,12 @@
   let seeAlpha = 0.45;    // tile opacity in Transparent mode; the Transparency slider sets it
   let medium = "tiles";   // "tiles" = square LEGO tiles on a studded baseplate; "beads" = round beads on a tray
   let built = null;   // the computed mosaic — a snapshot that lives in the grid; only Build (re)makes it
-  let activeTool = "select", paintColor = 1, painting = false, lastCell = null, eraseMode = false;  // Paint/Pick/Erase
+  let activeTool = "select", paintColor = 1, painting = false, lastCell = null;  // Paint/Pick/Erase
+  // Hold Shift to erase while the Paint tool is active, release to paint again. Read from the LIVE
+  // event rather than remembered at mouse-down, so Shift can go on and off in the middle of a stroke.
+  // Right-click erases too and always has; Shift is the version that works on a trackpad.
+  // e.button is only meaningful on mousedown; during a drag the held buttons are in e.buttons (2 = right).
+  const erasing = e => activeTool === "erase" || e.shiftKey || e.button === 2 || (e.buttons & 2) !== 0;
   let undoStack = [], redoStack = [], curStroke = null;   // paint-edit history: each entry is one stroke's per-cell {before,after}
   // ---- masses: the parts of the animal (head, wing, leg), each a named set of cells ----
   // Deliberately held OUTSIDE `built`: build() reassigns `built` wholesale (see build(), "built={gw,gh,idx,counts}")
@@ -484,8 +489,9 @@
       if(!built) return;
       const cel=cellAt(pt(e)); if(!cel) return;
       if(activeTool==="pick"){ const v=built.idx[cel.r][cel.c]; if(v>=0){ paintColor=v; setTool("paint"); } return; }
-      painting=true; eraseMode=(activeTool==="erase"||e.button===2); lastCell=cel; curStroke=new Map();   // record this stroke for undo
-      if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render();
+      painting=true; lastCell=cel; curStroke=new Map();          // record this stroke for undo
+      if(activeTool==="paint" && e.shiftKey) $("status").textContent="Erasing while Shift is held — release Shift to paint again.";
+      if(setCell(cel.r,cel.c, erasing(e)?-1:paintColor)) render();
       e.preventDefault(); return;
     }
     // Select picks up existing things, and a mass IS one: clicking a grouped tile reselects that mass. It has
@@ -517,7 +523,7 @@
   window.addEventListener("mousemove", e=>{
     if(gdrag){ const cel=cellAt(pt(e)); if(cel && (cel.r!==gdrag.r || cel.c!==gdrag.c)){ gdrag.r=cel.r; gdrag.c=cel.c; render(); } return; }
     if(tileTool()){ cv.style.cursor = built?"crosshair":"default"; return; }
-    if(painting){ const cel=cellAt(pt(e)); if(cel&&(!lastCell||cel.r!==lastCell.r||cel.c!==lastCell.c)){ lastCell=cel; if(setCell(cel.r,cel.c, eraseMode?-1:paintColor)) render(); } return; }
+    if(painting){ const cel=cellAt(pt(e)); if(cel&&(!lastCell||cel.r!==lastCell.r||cel.c!==lastCell.c)){ lastCell=cel; if(setCell(cel.r,cel.c, erasing(e)?-1:paintColor)) render(); } return; }
     if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){ cv.style.cursor = built?"cell":"default"; return; }
     if(!drag){ const p=pt(e), t=pick(p); cv.style.cursor = !t?"default":(t.act==="resize"?CURS[t.corner]:"move"); return; }
     const p=pt(e), b=sel.kind==="frame"?frame:sel.obj;               // moving/resizing never discards the mosaic — only Build does
