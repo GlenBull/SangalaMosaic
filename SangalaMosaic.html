@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-29.76 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-07-31.77 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -927,6 +927,17 @@
       $("status").textContent = had ? "Deselected. Nothing is selected now." : "Nothing was selected.";
       return;
     }
+    const ARROW={ArrowLeft:[0,-1], ArrowRight:[0,1], ArrowUp:[-1,0], ArrowDown:[1,0]};   // move the selected tiles, one stud per press
+    if(ARROW[e.key] && built && selCells.size){
+      e.preventDefault();
+      const [dr,dc]=ARROW[e.key], dir=e.key.slice(5).toLowerCase();
+      const m=selMass && massById(selMass);
+      const what=(m && selCells.size===massBox(selMass).n) ? m.name : "The selection";   // name the part when the whole of it is selected
+      $("status").textContent = nudgeSelection(dr,dc)
+        ? what+" moved one stud "+dir+". Ctrl+Z undoes the whole move."
+        : what+" is at the edge of the plate and cannot move further "+dir+".";
+      return;
+    }
     if((e.key==="Delete"||e.key==="Backspace") && sel && sel.kind==="layer"){
       layers=layers.filter(L=>L!==sel.obj); sel=null; render(); e.preventDefault();
     }
@@ -1285,6 +1296,7 @@
   function applySel(cells, mode){                              // replace | add | remove
     if(mode==="replace") selCells.clear();
     for(const {r,c} of cells){ const k=r*grpW+c; if(mode==="remove") selCells.delete(k); else selCells.add(k); }
+    moveRun=null;                                              // a new selection starts a new move step
   }
   function selBox(){                                           // footprint of the selection, in studs
     let r0=1e9,c0=1e9,r1=-1,c1=-1;
@@ -1292,7 +1304,54 @@
       if(r<r0)r0=r; if(r>r1)r1=r; if(c<c0)c0=c; if(c>c1)c1=c; }
     return selCells.size ? {n:selCells.size, w:c1-c0+1, h:r1-r0+1} : {n:0,w:0,h:0};
   }
-  function clearSel(){ selCells.clear(); lastWand=null; }
+  function clearSel(){ selCells.clear(); lastWand=null; moveRun=null; }
+
+  // ---- move the selection across the plate, one stud at a time ----
+  // A tile's color lives in built.idx and its part membership in grp. A move has to shift
+  // BOTH in step: shifting only the color leaves the part outline behind on the empty cells
+  // it used to occupy. Consecutive nudges merge into ONE undo step, so arrowing a part ten
+  // studs is one Ctrl+Z rather than ten.
+  let moveRun = null;                                          // the step consecutive nudges extend
+  function mergeBy(dst, add, key){                             // later value wins, original 'before' is kept
+    const m=new Map(dst.map(e=>[key(e), e]));
+    for(const e of add){ const o=m.get(key(e)); if(o) o.after=e.after; else { dst.push(e); m.set(key(e), e); } }
+  }
+  function nudgeSelection(dr, dc){
+    if(!built || !grp || grpW!==built.gw || !selCells.size) return false;
+    const cells=selList();
+    let r0=1e9,c0=1e9,r1=-1,c1=-1;
+    for(const {r,c} of cells){ if(r<r0)r0=r; if(r>r1)r1=r; if(c<c0)c0=c; if(c>c1)c1=c; }
+    if(r0+dr<0 || r1+dr>=built.gh || c0+dc<0 || c1+dc>=built.gw) return false;   // the whole selection stays on the plate
+    const src=cells.map(({r,c})=>({r, c, t:built.idx[r][c], g:grp[r*grpW+c]}));
+    const dst=new Set(cells.map(({r,c})=>(r+dr)*grpW+(c+dc)));
+    const changes=[];
+    curStroke=new Map();                                       // setCell records the color half for us
+    for(const s of src){                                       // vacate only what the move does not land on again
+      const k=s.r*grpW+s.c;
+      if(dst.has(k)) continue;
+      setCell(s.r, s.c, -1);
+      if(grp[k]){ changes.push({k, before:grp[k], after:0}); grp[k]=0; }
+    }
+    for(const s of src){                                       // then lay it down at the offset, holes and all
+      const k=(s.r+dr)*grpW+(s.c+dc);
+      setCell(s.r+dr, s.c+dc, s.t);
+      if(grp[k]!==s.g){ changes.push({k, before:grp[k], after:s.g}); grp[k]=s.g; }
+    }
+    const edits=curStroke?[...curStroke.values()]:[]; curStroke=null;
+    selCells.clear(); for(const k of dst) selCells.add(k);     // the selection travels with the tiles
+    if(edits.length || changes.length){
+      if(moveRun && undoStack[undoStack.length-1]===moveRun){  // still the top of the stack: extend it
+        mergeBy(moveRun.edits, edits, e=>e.r*grpW+e.c);
+        mergeBy(moveRun.changes, changes, ch=>ch.k);
+      } else {
+        moveRun={t:"move", edits, changes};
+        undoStack.push(moveRun);
+      }
+      redoStack.length=0;
+    }
+    pruneMasses(); renderMasses(); renderBOM(); render();
+    return true;
+  }
   // The Wand's Similar Colors slider: 0 = exact color only; the quadratic curve gives fine control
   // among close colors at the low end and only merges everything near the top.
   let lastWand=null;
@@ -1310,7 +1369,7 @@
   function loadMassIntoSel(id){                                // reselect a mass: its tiles become the selection
     const m=massById(id); if(!m) return false;
     selCells.clear(); for(const {r,c} of massCells(id)) selCells.add(r*grpW+c);
-    selMass=id; return true;
+    selMass=id; moveRun=null; return true;
   }
   function updateMass(id){                                     // make the mass match the selection exactly, in one undo step
     const m=massById(id); if(!m) return;
@@ -1425,7 +1484,7 @@
 
   // ---- undo / redo for paint & erase (one stroke = one step) ----
   function commitStroke(){ if(curStroke&&curStroke.size){ undoStack.push({t:"cells", edits:[...curStroke.values()]}); redoStack.length=0; } curStroke=null; }
-  function clearHistory(){ undoStack.length=0; redoStack.length=0; curStroke=null; }
+  function clearHistory(){ undoStack.length=0; redoStack.length=0; curStroke=null; moveRun=null; }
   function apply(edits, useBefore){ for(const ed of edits) setCell(ed.r, ed.c, useBefore?ed.before:ed.after); }   // curStroke is null here, so no re-record
   function applyGroup(changes, useBefore){                       // membership changes undo the same way tiles do
     if(!grp) return;
@@ -1438,7 +1497,9 @@
   function showResult(){}   // no-op: the mosaic always shows when built
   function undo(){
     if(!built||!undoStack.length){ $("status").textContent="Nothing to undo."; return; }
-    const step=stepOf(undoStack.pop()); redoStack.push(step);
+    const step=stepOf(undoStack.pop()); redoStack.push(step); moveRun=null;
+    if(step.t==="move"){ apply(step.edits,true); applyGroup(step.changes,true); renderMasses(); renderBOM(); render();
+      $("status").textContent="Undid a move ("+step.edits.length+" tile"+(step.edits.length===1?"":"s")+"). Ctrl+Y redoes."; return; }
     if(step.t==="group"){ applyGroup(step.changes,true); renderMasses(); render();
       $("status").textContent="Undid a grouping change ("+step.changes.length+" tile"+(step.changes.length>1?"s":"")+"). Ctrl+Y redoes."; return; }
     apply(step.edits,true); showResult(); renderBOM(); render();
@@ -1446,7 +1507,8 @@
   }
   function redo(){
     if(!built||!redoStack.length){ $("status").textContent="Nothing to redo."; return; }
-    const step=stepOf(redoStack.pop()); undoStack.push(step);
+    const step=stepOf(redoStack.pop()); undoStack.push(step); moveRun=null;
+    if(step.t==="move"){ apply(step.edits,false); applyGroup(step.changes,false); renderMasses(); renderBOM(); render(); $("status").textContent="Redid a move."; return; }
     if(step.t==="group"){ applyGroup(step.changes,false); renderMasses(); render(); $("status").textContent="Redid a grouping change."; return; }
     apply(step.edits,false); showResult(); renderBOM(); render();
     $("status").textContent="Redid a paint edit.";
