@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-07-31.78 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-02.79 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1195,6 +1195,8 @@
     // A cell tool works on tiles, not on objects, so drop any object selection: its handles would otherwise
     // sit there implying the photo is still grabbable, and clicks never reach the selection code in these modes.
     if(t!=="select" && sel){ sel=null; }
+    // Reaching for a drawing tool IS the decision to start a mosaic. Make the grid rather than refuse.
+    const startedBlank = (!built && (tileTool() || t==="paint" || t==="pick" || t==="erase")) ? !!blankMosaic() : false;
     if(tileTool()){ ensureGrp(); }
     // Leaving the tile tools drops a half-made selection - but NOT for Select, which is how a mass is reselected.
     if(!tileTool() && t!=="select") clearSel();
@@ -1202,15 +1204,27 @@
     if(t==="paint"||t==="pick"||t==="erase"){ cv.style.cursor="cell"; } else if(tileTool()){ cv.style.cursor=built?"crosshair":"default"; } else cv.style.cursor="default";
     refreshSwatches(); render();
     if(t==="select") $("status").textContent = "Select: click a part to reselect its tiles, or click the photo or the grid to pick it up and drag it.";
-    else if(t==="tiles") $("status").textContent = built
-      ? "Select Area: drag a box over the tiles you want, whatever color they are. Shift-click a tile to add it or drop it, Alt removes, Ctrl-D deselects. Then press Group."
-      : "Build a mosaic first — then select its tiles and group them into the parts of your animal.";
-    else if(t==="wand") $("status").textContent = built
-      ? "Magic wand: click a tile to select the whole connected run of that color. Shift adds another run, Alt removes, Ctrl-D deselects. Then press Group."
-      : "Build a mosaic first — then the Wand selects a whole color run at a time.";
-    else if(t==="paint") $("status").textContent = built ? "Paint: pick a color below, then click or drag cells. Ctrl+Z undoes." : "Build a mosaic first — then Paint fixes it tile by tile.";
-    else if(t==="pick") $("status").textContent = built ? "Pick: click a cell to grab its color, then paint with it." : "Build a mosaic first.";
-    else if(t==="erase") $("status").textContent = built ? "Erase: click or drag cells to clear them to empty (the baseplate shows through). Ctrl+Z undoes." : "Build a mosaic first.";
+    else if(t==="tiles") $("status").textContent = "Select Area: drag a box over the tiles you want, whatever color they are. Shift-click a tile to add it or drop it, Alt removes, Ctrl-D deselects. Then press Group.";
+    else if(t==="wand") $("status").textContent = "Magic wand: click a tile to select the whole connected run of that color. Shift adds another run, Alt removes, Ctrl-D deselects. Then press Group.";
+    else if(t==="paint") $("status").textContent = "Paint: pick a color below, then click or drag cells. Ctrl+Z undoes."
+      + (startedBlank ? " Started an empty "+built.gw+" × "+built.gh+" mosaic — set the grid size before drawing if you want a different one." : "");
+    else if(t==="pick") $("status").textContent = "Pick: click a cell to grab its color, then paint with it.";
+    else if(t==="erase") $("status").textContent = "Erase: click or drag cells to clear them to empty (the baseplate shows through). Ctrl+Z undoes.";
+  }
+  // Start an EMPTY mosaic at the current grid size. The drawing tools were never refusing on purpose -
+  // they write into built.idx, and until a photo was mapped there was no grid to write into, so Paint
+  // looked like it was being withheld. When a mosaic begins is the maker's decision, not the program's
+  // (Glen, 2026-08-02), so choosing a drawing tool starts one rather than turning the tool away.
+  // A photo, if one is open, is left alone: Build It still maps it, and still replaces what is here.
+  function blankMosaic(){
+    ensureFrame();                                   // no photo means no frame yet; centered, grid aspect
+    const gw=gW(), gh=gH(), idx=[];
+    for(let r=0;r<gh;r++) idx[r]=new Array(gw).fill(-1);          // -1 = empty, the baseplate shows through
+    built={gw, gh, idx, counts:{}, src:new Array(gw*gh).fill(null)};
+    grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0;       // nothing grouped yet
+    clearHistory();                                  // the blank grid is the starting point, not an edit to undo
+    renderBOM(); renderMasses(); render();
+    return built;
   }
   function cellAt(p){
     if(!built) return null; const f=frame, gw=built.gw, gh=built.gh;
