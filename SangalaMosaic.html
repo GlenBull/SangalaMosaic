@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-08-02.79 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-02.80 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -853,8 +853,24 @@
   document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeSaveMenu(); });
 
   // ---- grid controls ----
-  $("gW").addEventListener("input", ()=>{ physical(); reshapeFrame(); invalidate(); render(); });
-  $("gH").addEventListener("input", ()=>{ physical(); reshapeFrame(); invalidate(); render(); });
+  // "input" fires per keystroke, so it only does the harmless things - the readout and the frame shape.
+  // Anything that touches the mosaic waits for "change" (blur or Enter), by which time the number is
+  // the one that was meant rather than a digit passed through on the way to it.
+  const sizeLive = ()=>{ physical(); reshapeFrame(); render(); };
+  function sizeCommit(){
+    const gw=gW(), gh=gH();
+    if(!built){ render(); return; }
+    if(built.gw===gw && built.gh===gh) return;
+    if(!Object.keys(built.counts).length){ invalidate(); render(); return; }   // empty grid: nothing to carry
+    const dropped=resizeMosaic(gw,gh);
+    $("status").textContent = "Grid is now "+gw+" × "+gh+". "
+      + (dropped ? dropped+" tile"+(dropped===1?"":"s")+" fell outside it — Ctrl-Z puts the old grid back."
+                 : "The tiles were carried across. Ctrl-Z puts the old grid back.");
+  }
+  $("gW").addEventListener("input", sizeLive);
+  $("gH").addEventListener("input", sizeLive);
+  $("gW").addEventListener("change", sizeCommit);
+  $("gH").addEventListener("change", sizeCommit);
   $("ckGrid").addEventListener("change", ()=>{ showGrid=$("ckGrid").checked; render(); });
   $("ckPlate").addEventListener("change", ()=>{
     showPlate=$("ckPlate").checked;
@@ -1518,6 +1534,8 @@
   function undo(){
     if(!built||!undoStack.length){ $("status").textContent="Nothing to undo."; return; }
     const step=stepOf(undoStack.pop()); redoStack.push(step); moveRun=null;
+    if(step.t==="resize"){ restoreMosaic(step.before);
+      $("status").textContent="Undid the grid resize — back to "+step.before.gw+" × "+step.before.gh+". Ctrl+Y redoes."; return; }
     if(step.t==="move"){ apply(step.edits,true); applyGroup(step.changes,true); renderMasses(); renderBOM(); render();
       $("status").textContent="Undid a move ("+step.edits.length+" tile"+(step.edits.length===1?"":"s")+"). Ctrl+Y redoes."; return; }
     if(step.t==="group"){ applyGroup(step.changes,true); renderMasses(); render();
@@ -1528,6 +1546,8 @@
   function redo(){
     if(!built||!redoStack.length){ $("status").textContent="Nothing to redo."; return; }
     const step=stepOf(redoStack.pop()); undoStack.push(step); moveRun=null;
+    if(step.t==="resize"){ restoreMosaic(step.after);
+      $("status").textContent="Redid the grid resize — "+step.after.gw+" × "+step.after.gh+"."; return; }
     if(step.t==="move"){ apply(step.edits,false); applyGroup(step.changes,false); renderMasses(); renderBOM(); render(); $("status").textContent="Redid a move."; return; }
     if(step.t==="group"){ applyGroup(step.changes,false); renderMasses(); render(); $("status").textContent="Redid a grouping change."; return; }
     apply(step.edits,false); showResult(); renderBOM(); render();
@@ -1757,6 +1777,44 @@
   // Only a grid-size change calls this, and masses are keyed by cell, so they cannot survive a resize.
   function invalidate(){ if(built){ built=null; renderBOM(); clearHistory();
     grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0; renderMasses(); } }
+  // ---- resizing the grid without losing the mosaic ----
+  // Changing the grid size used to call invalidate(), throwing the whole mosaic away and clearing the
+  // history with it. That was survivable while a mosaic always came from a photo - Build It made it
+  // again - but a hand-drawn one has nothing to rebuild from. Worse, the size field fired on every
+  // KEYSTROKE, so typing "40" passed through "4" and destroyed the work before the second digit landed.
+  // An hour's work must not be lost to an ordinary action (Glen, 2026-08-02). So: the change is applied
+  // when the field is COMMITTED, the tiles that still fit are carried across, and Ctrl-Z restores the
+  // grid exactly as it was.
+  function snapshotMosaic(){
+    if(!built) return null;
+    return { gw:built.gw, gh:built.gh, idx:built.idx.map(r=>r.slice()),
+             counts:Object.assign({},built.counts),
+             src:built.src?built.src.map(v=>v?v.slice():null):null };
+  }
+  function restoreMosaic(sn){
+    built = { gw:sn.gw, gh:sn.gh, idx:sn.idx.map(r=>r.slice()),
+              counts:Object.assign({},sn.counts),
+              src:sn.src?sn.src.map(v=>v?v.slice():null):null };
+    $("gW").value=sn.gw; $("gH").value=sn.gh; physical(); reshapeFrame();
+    grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0;   // grouping is sized to a grid; it cannot cross a resize
+    renderBOM(); renderMasses(); render(); updateButtons();
+  }
+  function resizeMosaic(gw,gh){                              // returns how many placed tiles fell outside
+    const before=snapshotMosaic();
+    const idx=[]; let dropped=0;
+    for(let r=0;r<gh;r++){ idx[r]=new Array(gw).fill(-1);
+      for(let c=0;c<gw;c++) if(r<before.gh && c<before.gw) idx[r][c]=before.idx[r][c]; }
+    for(let r=0;r<before.gh;r++) for(let c=0;c<before.gw;c++)
+      if((r>=gh||c>=gw) && before.idx[r][c]>=0) dropped++;
+    const counts={}, src=new Array(gw*gh).fill(null);
+    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ const v=idx[r][c];
+      if(v>=0){ counts[v]=(counts[v]||0)+1; src[r*gw+c]=PALETTE[v].rgb.slice(); } }
+    built={gw,gh,idx,counts,src};
+    grp=null; grpW=grpH=0; masses=[]; massSeq=0; selMass=0;
+    undoStack.push({t:"resize", before, after:snapshotMosaic()}); redoStack.length=0;
+    renderBOM(); renderMasses(); render(); updateButtons();
+    return dropped;
+  }
   function updateButtons(){
     $("bBuild").disabled=(layers.length===0);
     $("bSeeThru").disabled=!built;
