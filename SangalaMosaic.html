@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.87 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.88 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -266,7 +266,7 @@
     <div class="hint" id="palhint" style="display:none;margin-top:0"></div>
     <!-- Edit, Clear, Reset and the photo reading all EDIT the tile set, so they fold away together behind
          one button and leave the swatches themselves alone. -->
-    <button class="ebtn" id="bTileColors" style="width:100%;margin-top:.4rem" title="Adjust colors in the Tile Palette">Tile Colors ▸</button>
+    <button class="ebtn" id="bTileColors" style="width:100%;margin-top:.4rem" title="Adjust the colors this mosaic uses">Tile Colors ▸</button>
     <div id="tilecolors" style="display:none">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;margin-top:.4rem">
         <button class="ebtn" id="bOwnMode" title="Edit colors in the Tile Palette">Edit</button>
@@ -793,7 +793,7 @@
     seeAlpha=(typeof p.seeAlpha==="number" && p.seeAlpha>0 && p.seeAlpha<1)?p.seeAlpha:0.45;
     $("optSee").value=Math.round(100*(1-seeAlpha));
     medium=(p.medium==="beads"||p.medium==="dots")?p.medium:"tiles";   // absent in older files: tiles
-    $("medium").value=medium;
+    $("medium").value=medium; relabelMedium();
     syncShow();
     frame=p.frame||null; built=p.built||null; setTool("select");
     if(built && !built.src){                                        // an older save: every tile is its own source
@@ -977,6 +977,7 @@
   // ---- palette + mapping (Build It!) ----
   // A curated set of real LEGO solid tile colors (approximate RGB). "own" says the builder has it; the
   // mapping uses only owned colors, so the mosaic and the parts list reflect what can actually be built.
+  let DOT_ONLY_FROM = 0;
   const PALETTE = [
     {name:"White",         rgb:[242,243,242]},
     {name:"Black",         rgb:[27,42,52]},
@@ -1006,6 +1007,22 @@
     {name:"Very Light Gray", rgb:[205,208,206]},   // real LEGO grays appended (never inserted - saved files index by position)
     {name:"Medium Gray",   rgb:[108,110,104]}
   ].map(p=>({name:p.name, rgb:p.rgb, own:true}));
+
+  // Colors that exist for DOTS but not for tiles. A dot is a sticker or a stroke of marker, so the
+  // palette is not limited to colors LEGO has actually molded - the reason the tile palette stops at
+  // 27 does not apply. They are APPENDED, never inserted, because saved files index the palette by
+  // position. They are hidden unless the medium is Dots, and build() will not use them either.
+  DOT_ONLY_FROM = PALETTE.length;
+  [
+    {name:"Crimson",      rgb:[190,30,60]},   {name:"Coral",        rgb:[247,120,100]},
+    {name:"Peach",        rgb:[252,190,150]}, {name:"Amber",        rgb:[247,168,40]},
+    {name:"Mustard",      rgb:[205,168,50]},  {name:"Olive",        rgb:[130,140,60]},
+    {name:"Mint",         rgb:[150,214,180]}, {name:"Teal",         rgb:[35,140,140]},
+    {name:"Turquoise",    rgb:[60,190,190]},  {name:"Sky",          rgb:[150,200,240]},
+    {name:"Indigo",       rgb:[60,70,150]},   {name:"Violet",       rgb:[130,90,180]},
+    {name:"Lavender",     rgb:[200,180,225]}, {name:"Rose",         rgb:[240,160,180]},
+    {name:"Cream",        rgb:[248,240,215]}, {name:"Charcoal",     rgb:[60,60,64]}
+  ].forEach(p=>PALETTE.push({name:p.name, rgb:p.rgb, own:true, dotOnly:true}));
 
   // Baseplate colors - limited to ones LEGO has actually sold as baseplates, so a design stays realistic.
   const BASEPLATE = [
@@ -1038,7 +1055,7 @@
         if(ownMode){                                                    // the ONLY way ownership changes by hand
           p.own=!p.own; refreshSwatches(); render();
           const n=PALETTE.filter(q=>q.own).length;
-          $("status").textContent = p.name+(p.own?" added to":" dropped from")+" your tiles — "+n+" color"+(n!==1?"s":"")+" owned. Press Done when the list matches your box.";
+          $("status").textContent = p.name+(p.own?" added to":" dropped from")+" your colors — "+n+" color"+(n!==1?"s":"")+" owned. Press Done when the list matches your box.";
           return;
         }
         if(activeTool==="paint"||activeTool==="pick"||activeTool==="erase"){
@@ -1108,7 +1125,8 @@
       // Outside the ownership editor the palette shows ONLY the tiles you own. A color you dropped is gone,
       // not sitting there slashed - that was clutter. The full set of 27 appears only inside the editor,
       // which is the one place a click can add or drop a color.
-      s.style.display = (ownMode || p.own) ? "" : "none";
+      const usable = !p.dotOnly || medium==="dots";     // a marker color is meaningless on a baseplate
+      s.style.display = (usable && (ownMode || p.own)) ? "" : "none";
       // the chosen paint color stays marked in EVERY mode, so it is always visible which one is loaded
       s.className="sw"+(p.own?"":" off")+(i===paintColor?" cur":"");
       // The tooltip must say what a click WILL do. Dropping a color happens in the ownership editor and
@@ -1124,7 +1142,7 @@
     const hint=$("palhint");
     if(hint){
       const msg = ownMode ? "Click a color to add it or drop it. A color with a slash is one you do not have. Only these are used when Mosaic builds."
-                : !nOwn   ? "No colors chosen. Press Tile Colors to pick them, or read them from a photo."
+                : !nOwn   ? "No colors chosen. Press "+(MEDIUM_NOUN[medium]||"Tile")+" Colors to pick them, or read them from a photo."
                           : "";
       hint.textContent = msg;
       hint.style.display = msg ? "" : "none";
@@ -1612,7 +1630,7 @@
   function build(){
     if(!layers.length) return;
     const gw=gW(), gh=gH();
-    const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb})).filter(o=>PALETTE[o.i].own);
+    const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb})).filter(o=>PALETTE[o.i].own && (!PALETTE[o.i].dotOnly || medium==="dots"));
     if(!owned.length){ $("status").textContent="Turn on at least one tile color in the palette first."; return; }
     const ignoreBg=$("optIgnoreBg").checked, contrast=+$("optContrast").value, bright=+$("optBright").value;
     const K=Math.min(+$("optColors").value, owned.length), doClean=$("optClean").checked;
@@ -1723,7 +1741,7 @@
   // empty cells stay empty, filled cells stay filled - a slider can never make tiles go away.
   function retile(){
     if(!built||!built.src) return;
-    const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb})).filter(o=>PALETTE[o.i].own);
+    const owned=PALETTE.map((p,i)=>({i,rgb:p.rgb})).filter(o=>PALETTE[o.i].own && (!PALETTE[o.i].dotOnly || medium==="dots"));
     if(!owned.length) return;
     const contrast=+$("optContrast").value, bright=+$("optBright").value;
     const cf=1+contrast/100, bAdd=bright*1.28, adj=v=>{ v=(v-128)*cf+128+bAdd; return v<0?0:v>255?255:v; };
@@ -1890,9 +1908,19 @@
     dots :"Dots — dot stickers, or marker dots, on poster paper. The Baseplate color is the paper, and it shows between the dots, so an empty cell reads as bare paper.",
     beads:"Beads — round beads on a tray. The Baseplate color is the tray."
   };
+  // The palette panel must not call them tiles when they are not. A dot is a sticker or a marker
+  // mark, a bead is a bead - and in Dots the palette is not even the same set (Glen, 2026-08-07).
+  const MEDIUM_NOUN={tiles:"Tile", dots:"Dot", beads:"Bead"};
+  function relabelMedium(){
+    const n=MEDIUM_NOUN[medium]||"Tile";
+    $("bTileColors").textContent = n+" Colors ▸";
+    $("bOwnPhoto").textContent   = "Add "+n+" Colors in a Photo";
+  }
   function setMedium(m){
     medium = MEDIA[m] ? m : "tiles";
     $("medium").value = medium;
+    relabelMedium();
+    refreshSwatches();                 // dot-only colors appear in Dots and nowhere else
     render();
     $("status").textContent = MEDIA[medium];
   }
