@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.84 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.85 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -696,7 +696,8 @@
       if(medium!=="tiles"){                                        // a round element: a bead, or a dot on paper
         const cx=ox+(c+0.5)*cell, cy=oy+(r+0.5)*cell, rad=cell*0.46;
         g.fillStyle="rgb("+col.join(",")+")";
-        g.beginPath(); g.arc(cx,cy,rad,0,6.2832); g.fill();
+        if(medium==="dots") dotBlob(g,cx,cy,rad,r,c); else g.beginPath(), g.arc(cx,cy,rad,0,6.2832);
+        g.fill();
         // A bead is a glassy object and carries a rim and a highlight. A dot is a mark - a sticker
         // or a stroke of marker on paper - and carries NEITHER. Reynolds's dots have no outline.
         if(medium==="beads"){
@@ -1759,6 +1760,33 @@
 
   // The studded baseplate, drawn once per (grid, color, size) and reused - a stud on every cell (tiles cover
   // the ones they sit on). Rendered at device resolution so the studs are crisp.
+  // A dot is made by hand, and in "The Dot" the hand-made dot is the whole point - Vashti's are
+  // wobbly, and the book's argument is that the imperfection is not a defect. So a dot is drawn as
+  // an irregular blob rather than a circle: its size, its centre and its edge all vary a little.
+  //
+  // The variation MUST be deterministic. Seeded from the cell's own row and column, a dot keeps the
+  // same shape across every repaint, save and reload; seeded from a random number it would reshuffle
+  // on each render and the mosaic would shimmer. Beads are manufactured and stay perfectly round.
+  function dotSeed(r,c,k){ const x=Math.sin(r*127.1 + c*311.7 + k*74.7)*43758.5453; return x-Math.floor(x); }
+  function dotBlob(g,cx,cy,rad,r,c){
+    const N=16;
+    cx += (dotSeed(r,c,4)-0.5)*rad*0.14;                 // set down slightly off centre
+    cy += (dotSeed(r,c,5)-0.5)*rad*0.14;
+    rad *= 0.84 + 0.28*dotSeed(r,c,6);                   // and not quite the same size as its neighbour
+    const a1=dotSeed(r,c,1)*6.283, a2=dotSeed(r,c,2)*6.283, a3=dotSeed(r,c,3)*6.283;
+    const pt=i=>{ const t=i/N*6.283;
+      // Tuned by drawing the alternatives and looking. Gentler than this and the dots read as
+      // printed circles; rougher and they stop being dots at all - they turn into peanuts.
+      const w=1 + 0.18*Math.sin(t*2+a1) + 0.100*Math.sin(t*3+a2) + 0.060*Math.sin(t*5+a3);
+      return [cx+Math.cos(t)*rad*w, cy+Math.sin(t)*rad*w]; };
+    const first=pt(0), last=pt(N-1);
+    g.beginPath();
+    g.moveTo((last[0]+first[0])/2,(last[1]+first[1])/2);
+    for(let i=0;i<N;i++){ const a=pt(i), b=pt((i+1)%N);   // midpoint quadratics -> a smooth closed edge
+      g.quadraticCurveTo(a[0],a[1],(a[0]+b[0])/2,(a[1]+b[1])/2); }
+    g.closePath();
+  }
+
   function getPlate(gw,gh,rgb,W,H){
     const key=gw+"x"+gh+"|"+rgb.join(",")+"|"+Math.round(W)+"x"+Math.round(H);
     if(plateCache.key===key) return plateCache.canvas;
@@ -1789,7 +1817,8 @@
       if(medium!=="tiles"){                                                              // a bead, or a dot on paper
         const cx=f.x+(c+0.5)*cw, cy=f.y+(r+0.5)*ch, rad=Math.min(cw,ch)*0.46;
         ctx.fillStyle="rgb("+col.join(",")+")";
-        ctx.beginPath(); ctx.arc(cx,cy,rad,0,6.2832); ctx.fill();
+        if(medium==="dots") dotBlob(ctx,cx,cy,rad,r,c); else ctx.beginPath(), ctx.arc(cx,cy,rad,0,6.2832);
+        ctx.fill();
         if(!flat && medium==="beads"){                                                 // rim + glass highlight
           ctx.lineWidth=1; ctx.strokeStyle="rgba(0,0,0,0.30)"; ctx.stroke();             // a dot has neither
           ctx.fillStyle="rgba(255,255,255,0.35)";
