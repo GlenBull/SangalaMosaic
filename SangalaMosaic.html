@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.89 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.90 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -269,9 +269,9 @@
     <button class="ebtn" id="bTileColors" style="width:100%;margin-top:.4rem" title="Adjust the colors this mosaic uses">Tile Colors ▸</button>
     <div id="tilecolors" style="display:none">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;margin-top:.4rem">
-        <button class="ebtn" id="bOwnMode" title="Edit colors in the Tile Palette">Edit</button>
+        <button class="ebtn" id="bOwnMode" title="Add or drop colors - the full set appears while editing, including ones now switched off">Edit</button>
         <button class="ebtn" id="bOwnNone" title="Start with an empty palette, then add colors">Clear</button>
-        <button class="ebtn" id="bOwnReset" title="Reset to standard Tile Palette">Reset</button>
+        <button class="ebtn" id="bOwnReset" title="Switch every color back on">Reset</button>
       </div>
       <button class="ebtn" id="bOwnPhoto" style="width:100%;margin-top:.35rem" title="Read the tile colors out of the photo in the workspace — loose tiles, a tray of them, or a mosaic already built from them. Colors are added to the palette; press Clear first to use only these.">Add Tile Colors in a Photo</button>
     </div>
@@ -1226,8 +1226,8 @@
     refreshSwatches(); render();
     const n=PALETTE.filter(q=>q.own).length;
     $("status").textContent = ownMode
-      ? ("Which tiles do you own? Click colors to add or drop them — "+n+" owned now. Press Done when the list matches the tiles on your table.")
-      : ("Your tiles: "+n+" color"+(n!==1?"s":"")+". Press Build It! to remap the mosaic to them.");
+      ? ("Which colors do you have? Click to add or drop them — "+n+" on now. Press Done when the list matches what is on your table.")
+      : ("Your colors: "+n+" color"+(n!==1?"s":"")+". Press Build It! to remap the mosaic to them.");
   }
   // ---- Paint / Pick: hand-edit the built mosaic, tile by tile ----
   function setTool(t){
