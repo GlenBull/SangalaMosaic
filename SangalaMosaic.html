@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.85 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.86 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1772,12 +1772,13 @@
     const N=16;
     cx += (dotSeed(r,c,4)-0.5)*rad*0.14;                 // set down slightly off centre
     cy += (dotSeed(r,c,5)-0.5)*rad*0.14;
-    rad *= 0.84 + 0.28*dotSeed(r,c,6);                   // and not quite the same size as its neighbour
+    rad *= 0.88 + 0.20*dotSeed(r,c,6);                   // and not quite the same size as its neighbour
     const a1=dotSeed(r,c,1)*6.283, a2=dotSeed(r,c,2)*6.283, a3=dotSeed(r,c,3)*6.283;
     const pt=i=>{ const t=i/N*6.283;
-      // Tuned by drawing the alternatives and looking. Gentler than this and the dots read as
-      // printed circles; rougher and they stop being dots at all - they turn into peanuts.
-      const w=1 + 0.18*Math.sin(t*2+a1) + 0.100*Math.sin(t*3+a2) + 0.060*Math.sin(t*5+a3);
+      // Tuned by drawing the alternatives and looking at them (Glen chose, 2026-08-07). Enough
+      // that no two dots are alike and none is a circle; not so much that they stop being dots.
+      // Twice this and they turn into peanuts, which reads as a fault rather than as a hand.
+      const w=1 + 0.10*Math.sin(t*2+a1) + 0.055*Math.sin(t*3+a2) + 0.030*Math.sin(t*5+a3);
       return [cx+Math.cos(t)*rad*w, cy+Math.sin(t)*rad*w]; };
     const first=pt(0), last=pt(N-1);
     g.beginPath();
