@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-08-06.81 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.82 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -252,11 +252,12 @@
     <div id="baseplates" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.4rem"></div>
 
     <h2 class="marker sub">Medium</h2>
-    <div class="hint" style="margin-top:0">How the mosaic is drawn — LEGO tiles, or beads (a woven-bead tradition in many parts of Africa).</div>
-    <div class="two" style="margin-top:.4rem">
-      <button class="ebtn on" id="bMedTiles" title="Square LEGO tiles on a studded baseplate">Tiles</button>
-      <button class="ebtn" id="bMedBeads" title="Round beads on a tray — the Baseplate color is the tray">Beads</button>
-    </div>
+    <div class="hint" style="margin-top:0">How the mosaic is drawn — LEGO tiles, round plates, or beads (a woven-bead tradition in many parts of Africa).</div>
+    <select id="medium" style="width:100%;margin-top:.4rem">
+      <option value="tiles">Tiles</option>
+      <option value="dots">Dots</option>
+      <option value="beads">Beads</option>
+    </select>
     </div><!-- /setup -->
 
     <!-- Just "Palette" — not "Your Tiles": a student may design first and buy the tiles later
@@ -687,18 +688,25 @@
     if(opaque){ g.fillStyle="#ffffff"; g.fillRect(0,0,cvx.width,cvx.height); }   // JPEG can't be transparent
     if(showPlate){
       if(medium==="beads"){ g.fillStyle="rgb("+BASEPLATE[baseIdx].rgb.join(",")+")"; g.fillRect(ox,oy,W,H); }   // the tray: plain, no studs
-      else g.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,W,H),ox,oy,W,H);          // studded plate behind
+      else g.drawImage(getPlate(gw,gh,BASEPLATE[baseIdx].rgb,W,H),ox,oy,W,H);          // studded plate behind - tiles AND dots
     }
     const inset=Math.max(0.5, cell*0.05);
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
       const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;
-      if(medium==="beads"){                                                            // a round bead in the cell
+      if(medium!=="tiles"){                                        // a round element: a bead, or a 1x1 round plate
         const cx=ox+(c+0.5)*cell, cy=oy+(r+0.5)*cell, rad=cell*0.46;
         g.fillStyle="rgb("+col.join(",")+")";
         g.beginPath(); g.arc(cx,cy,rad,0,6.2832); g.fill();
         g.lineWidth=1; g.strokeStyle="rgba(0,0,0,0.30)"; g.stroke();
-        g.fillStyle="rgba(255,255,255,0.35)";
-        g.beginPath(); g.arc(cx-rad*0.35, cy-rad*0.38, rad*0.28, 0, 6.2832); g.fill();
+        if(medium==="dots"){                                       // the stud on top of a round plate
+          g.strokeStyle="rgba(0,0,0,0.22)";
+          g.beginPath(); g.arc(cx,cy,rad*0.58,0,6.2832); g.stroke();
+          g.fillStyle="rgba(255,255,255,0.22)";
+          g.beginPath(); g.arc(cx-rad*0.18, cy-rad*0.20, rad*0.34, 0, 6.2832); g.fill();
+        } else {
+          g.fillStyle="rgba(255,255,255,0.35)";                    // a bead is glassy; a plate is not
+          g.beginPath(); g.arc(cx-rad*0.35, cy-rad*0.38, rad*0.28, 0, 6.2832); g.fill();
+        }
         continue;
       }
       const x=ox+c*cell+inset, y=oy+r*cell+inset, w=cell-2*inset, h=cell-2*inset;
@@ -787,9 +795,8 @@
     showPlate=p.showPlate!==false; showGrid=p.showGrid!==false; showBox=p.showBox!==false; seeThrough=!!p.seeThrough; paintColor=p.paintColor||1;
     seeAlpha=(typeof p.seeAlpha==="number" && p.seeAlpha>0 && p.seeAlpha<1)?p.seeAlpha:0.45;
     $("optSee").value=Math.round(100*(1-seeAlpha));
-    medium=(p.medium==="beads")?"beads":"tiles";
-    $("bMedTiles").classList.toggle("on", medium==="tiles");
-    $("bMedBeads").classList.toggle("on", medium==="beads");
+    medium=(p.medium==="beads"||p.medium==="dots")?p.medium:"tiles";   // absent in older files: tiles
+    $("medium").value=medium;
     syncShow();
     frame=p.frame||null; built=p.built||null; setTool("select");
     if(built && !built.src){                                        // an older save: every tile is its own source
@@ -1782,14 +1789,21 @@
     const inset=Math.max(0.5, Math.min(cw,ch)*0.05);                                     // thin seam between tiles
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
       const ti=idx[r][c]; if(ti<0) continue; const col=PALETTE[ti].rgb;
-      if(medium==="beads"){                                                              // a round bead in the cell
+      if(medium!=="tiles"){                                                              // a bead, or a 1x1 round plate
         const cx=f.x+(c+0.5)*cw, cy=f.y+(r+0.5)*ch, rad=Math.min(cw,ch)*0.46;
         ctx.fillStyle="rgb("+col.join(",")+")";
         ctx.beginPath(); ctx.arc(cx,cy,rad,0,6.2832); ctx.fill();
         if(!flat){
           ctx.lineWidth=1; ctx.strokeStyle="rgba(0,0,0,0.30)"; ctx.stroke();             // rim
-          ctx.fillStyle="rgba(255,255,255,0.35)";                                        // glass highlight
-          ctx.beginPath(); ctx.arc(cx-rad*0.35, cy-rad*0.38, rad*0.28, 0, 6.2832); ctx.fill();
+          if(medium==="dots"){                                                           // the stud on top
+            ctx.strokeStyle="rgba(0,0,0,0.22)";
+            ctx.beginPath(); ctx.arc(cx,cy,rad*0.58,0,6.2832); ctx.stroke();
+            ctx.fillStyle="rgba(255,255,255,0.22)";
+            ctx.beginPath(); ctx.arc(cx-rad*0.18, cy-rad*0.20, rad*0.34, 0, 6.2832); ctx.fill();
+          } else {
+            ctx.fillStyle="rgba(255,255,255,0.35)";                                      // glass highlight
+            ctx.beginPath(); ctx.arc(cx-rad*0.35, cy-rad*0.38, rad*0.28, 0, 6.2832); ctx.fill();
+          }
         }
         continue;
       }
@@ -1876,17 +1890,18 @@
   $("bSeeThru").onclick = ()=>{ if(!built) return; seeThrough=!seeThrough;
     $("status").textContent = seeThrough ? "Transparent: the photo shows through the translucent tiles. Toggle it off for solid tiles." : "Solid tiles."; render(); };
   $("bChart").onclick = printMosaic;
+  const MEDIA={
+    tiles:"Tiles — square LEGO tiles on a studded baseplate.",
+    dots :"Dots — round 1x1 plates on a studded baseplate. The baseplate shows between them, so an empty cell reads as open ground.",
+    beads:"Beads — round beads on a tray. The Baseplate color is the tray."
+  };
   function setMedium(m){
-    medium=(m==="beads")?"beads":"tiles";
-    $("bMedTiles").classList.toggle("on", medium==="tiles");
-    $("bMedBeads").classList.toggle("on", medium==="beads");
+    medium = MEDIA[m] ? m : "tiles";
+    $("medium").value = medium;
     render();
-    $("status").textContent = medium==="beads"
-      ? "Beads — round beads on a tray. The Baseplate color is the tray."
-      : "Tiles — square LEGO tiles on a studded baseplate.";
+    $("status").textContent = MEDIA[medium];
   }
-  $("bMedTiles").onclick=()=>setMedium("tiles");
-  $("bMedBeads").onclick=()=>setMedium("beads");
+  $("medium").onchange = e => setMedium(e.target.value);
   // Slider reads as "how transparent": more = more photo, so tile opacity is the complement.
   $("optSee").addEventListener("input", ()=>{ seeAlpha=1-(+$("optSee").value)/100; render(); });
   // One undoable step: every filled cell -> empty. Photos, palette, grid, and masses are untouched,
