@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.88 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-07.89 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1701,9 +1701,24 @@
     // Neither shortcut works: summing the channels picks Dark Green (0,69,38) over Black
     // (27,42,52), and redmean distance from pure black picks Dark Brown. The ink of a drawing is
     // expected to come out black, so say so rather than infer it.
+    let inkNote="";
     if(inkCells.length){
       const named=owned.find(o=>PALETTE[o.i].name==="Black");
-      const dark=named ? named.i : nearestOwned([16,16,16], owned).i;
+      let dark;
+      if(named) dark=named.i;
+      else {
+        // No Black on hand. Fall back to the darkest NEUTRAL rather than the nearest colour to
+        // black: redmean distance from pure black picks Dark Brown, and brown line work reads as a
+        // deliberate colour choice rather than as ink. Score = luminance + a penalty for how
+        // colourful it is, so a dark grey beats a darker brown.
+        let best=owned[0], bs=1e9;
+        for(const q of owned){
+          const [r0,g0,b0]=q.rgb, lum=(r0+g0+b0)/3, sat=Math.max(r0,g0,b0)-Math.min(r0,g0,b0);
+          const sc=lum+0.9*sat; if(sc<bs){ bs=sc; best=q; }
+        }
+        dark=best.i;
+        inkNote=" Black is switched off, so the line is drawn in "+PALETTE[dark].name+".";
+      }
       for(const ci of inkCells) cellTile[ci]=dark;
     }
     let idx=[]; for(let r=0;r<gh;r++){ idx[r]=[]; for(let c=0;c<gw;c++) idx[r][c]=cellTile[r*gw+c]; }
@@ -1732,7 +1747,7 @@
     const rows=tileRows(), top=rows[0];
     $("status").textContent="Built a "+gw+" × "+gh+" mosaic - "+tiled+" tiles, "+rows.length+" colors"
       + (top ? ", most of any one color "+top.n+" ("+PALETTE[top.i].name+")" : "")
-      + ". Save > Tile List writes the counts out." + remapNote;
+      + ". Save > Tile List writes the counts out." + remapNote + inkNote;
   }
 
   // ---- retile: the Adjust Mosaic sliders, applied to the mosaic AS IT STANDS ----
