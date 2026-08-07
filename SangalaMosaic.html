@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-08-02.80 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-08-06.81 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -187,6 +187,9 @@
     <h2 class="marker sub">Adjust Mosaic</h2>
     <label style="display:flex;align-items:flex-start;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.15rem">
       <input type="checkbox" id="optIgnoreBg" checked style="width:auto;margin:.15rem 0 0"> Ignore the background</label>
+    <label style="display:flex;align-items:flex-start;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.25rem"
+      title="For a drawing rather than a photograph. Each tile takes the dominant color under it and the ink line is discarded, instead of ink and paper averaging together into gray.">
+      <input type="checkbox" id="optLineArt" style="width:auto;margin:.15rem 0 0"> Sample as line art</label>
     <label class="fld" style="margin-top:.5rem">Colors — how many <span id="colorsVal" style="font-weight:700"></span><input type="range" id="optColors" min="2" max="16" value="9" style="width:100%"></label>
     <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;color:#5a4a34;cursor:pointer;margin-top:.25rem">
       <input type="checkbox" id="optClean" checked style="width:auto;margin:0"> Clean up stray tiles</label>
@@ -648,7 +651,8 @@
       // masses ride OUTSIDE built, exactly as they do in memory, so a re-map at the same grid size keeps them
       masses, massSeq, grp: grp?Array.from(grp):null, grpW, grpH,
       opts:{ ignoreBg:$("optIgnoreBg").checked, colors:$("optColors").value, clean:$("optClean").checked,
-             contrast:$("optContrast").value, bright:$("optBright").value } };
+             contrast:$("optContrast").value, bright:$("optBright").value,
+             lineArt:$("optLineArt").checked } };
     const blob=new Blob([JSON.stringify(proj)],{type:"application/json"});
     const suggested = projectName ? projectName+".mosaic" : "Mosaic project.mosaic";   // default the Save dialog to the open project's name
     if(window.showSaveFilePicker){                         // native Save As (choose folder + name), same as Sangala Studio
@@ -774,7 +778,8 @@
     setProjectName(name);
     $("gW").value=(p.grid&&p.grid.gw)||32; $("gH").value=(p.grid&&p.grid.gh)||32; physical();
     if(p.opts){ $("optIgnoreBg").checked=!!p.opts.ignoreBg; $("optColors").value=p.opts.colors; $("colorsVal").textContent=p.opts.colors;
-      $("optClean").checked=!!p.opts.clean; $("optContrast").value=p.opts.contrast; $("optBright").value=p.opts.bright; }
+      $("optClean").checked=!!p.opts.clean; $("optContrast").value=p.opts.contrast; $("optBright").value=p.opts.bright;
+      $("optLineArt").checked=!!p.opts.lineArt; }   // absent in files saved before line-art sampling: off, the old behavior
     if(p.palette) PALETTE.forEach((pl,i)=>{ pl.own=p.palette[i]!==false; });
     PALETTE.forEach((pl,i)=>{ pl.fromPhoto = !!(p.myTiles && p.myTiles[i]); });   // My tiles, if the file has it
     buildSwatches();
@@ -1617,19 +1622,49 @@
     layers.forEach(L=>o.drawImage(sampleSrc(L,ignoreBg),L.x,L.y,L.w,L.h));   // ignore-bg -> sample a bg-removed copy
     o.restore();
     const d=o.getImageData(0,0,sw,sh).data;
-    // 2. AVERAGE each cell's non-background samples -> a smooth low-res image (flattens feather texture).
-    //    A cell with no subject at all is empty. Contrast/brightness are applied to the average.
-    const cellCol=new Array(gw*gh).fill(null), pts=[], ptCell=[];
+    // 2. Reduce each cell's non-background samples to ONE color. A cell with no subject is empty.
+    //    PHOTOGRAPH: AVERAGE them -> a smooth low-res image (flattens feather texture).
+    //    LINE ART: averaging is destructive, but so is simply throwing the ink away. A cell that
+    //    straddles a line covers ink AND paper; most of it is paper, so the average is a PALE gray
+    //    and the nearest tile to a pale gray is a gray one. Every line then lays a track of gray
+    //    tiles - the drawing returns as a gray tracing of itself, in a color the artist never used
+    //    (measured 2026-08-06: 145 of 960 cells gray, against 109 carrying any color at all).
+    //    Discarding the ink instead loses the drawing: a face IS its outline, so the head came back
+    //    as an unreadable blob. The answer is to CLASSIFY each cell rather than blend it - ink,
+    //    color, or paper - and keep ink AS ink. An ink cell is forced to the darkest tile below,
+    //    bypassing the clustering, because letting it match by distance lands it on dark brown.
+    const lineArt=$("optLineArt").checked;
+    const INK_LUM=110, INK_FRAC=0.30, SAT_MIN=28, COL_FRAC=0.10, PALE_LUM=190, PALE_SAT=46;
+    const med=a=>{ a.sort((x,y)=>x-y); return a[a.length>>1]; };
+    const cellCol=new Array(gw*gh).fill(null), pts=[], ptCell=[], inkCells=[];
     for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){
-      let R=0,G=0,B=0,n=0;
+      let R=0,G=0,B=0,n=0,ink=0; const cr=[],cg=[],cb=[];
       for(let yy=0;yy<SUB;yy++) for(let xx=0;xx<SUB;xx++){
         const p=(((r*SUB+yy)*sw)+(c*SUB+xx))*4;
         if(ignoreBg && d[p+3]<40) continue;
-        R+=d[p]; G+=d[p+1]; B+=d[p+2]; n++;
+        const R1=d[p], G1=d[p+1], B1=d[p+2];
+        R+=R1; G+=G1; B+=B1; n++;
+        if(!lineArt) continue;
+        const lum=(R1+G1+B1)/3, sat=Math.max(R1,G1,B1)-Math.min(R1,G1,B1);
+        if(lum<INK_LUM) ink++;
+        // Only pixels carrying real color vote. A pale NEUTRAL is the anti-aliased fringe beside a
+        // line, and letting it vote is how the gray creeps back in at the edges.
+        else if(sat>SAT_MIN){ cr.push(R1); cg.push(G1); cb.push(B1); }
       }
       if(!n) continue;
-      const ci=r*gw+c, raw=[R/n,G/n,B/n]; cellCol[ci]=raw;                 // raw: the sliders re-adjust from this later
-      pts.push([adj(raw[0]),adj(raw[1]),adj(raw[2])]); ptCell.push(ci);
+      const ci=r*gw+c;
+      if(!lineArt){ const raw=[R/n,G/n,B/n]; cellCol[ci]=raw;
+        pts.push([adj(raw[0]),adj(raw[1]),adj(raw[2])]); ptCell.push(ci); continue; }
+      if(ink > INK_FRAC*n){ inkCells.push(ci); cellCol[ci]=[20,20,20]; continue; }   // the LINE, kept as line
+      if(cr.length > COL_FRAC*n){
+        const raw=[med(cr),med(cg),med(cb)];
+        // A wash too pale to carry color would land on Very Light Gray. On white paper it says
+        // nothing, so let the page show instead of spending a tile on it.
+        if(!((raw[0]+raw[1]+raw[2])/3 > PALE_LUM && Math.max(...raw)-Math.min(...raw) < PALE_SAT)){
+          cellCol[ci]=raw; pts.push([adj(raw[0]),adj(raw[1]),adj(raw[2])]); ptCell.push(ci);
+        }
+      }
+      // otherwise paper: the cell stays empty, which is what lets the baseplate stand for the page
     }
     // 3. reduce to K coherent colors (k-means on the cell colors), snap each group to its nearest OWNED tile
     const cellTile=new Array(gw*gh).fill(-1);
@@ -1637,6 +1672,17 @@
       const km=kmeans(pts, Math.max(1,K));
       const clusterTile=km.centroids.map(c=>nearestOwned(c, owned).i);
       for(let i=0;i<pts.length;i++) cellTile[ptCell[i]]=clusterTile[km.assign[i]];
+    }
+    // Ink cells skip the clustering entirely and take the darkest tile on hand. Sent through
+    // k-means they get averaged in with everything else dark and land on a brown.
+    // Ask for Black by NAME, and only fall back to a distance match when it is switched off.
+    // Neither shortcut works: summing the channels picks Dark Green (0,69,38) over Black
+    // (27,42,52), and redmean distance from pure black picks Dark Brown. The ink of a drawing is
+    // expected to come out black, so say so rather than infer it.
+    if(inkCells.length){
+      const named=owned.find(o=>PALETTE[o.i].name==="Black");
+      const dark=named ? named.i : nearestOwned([16,16,16], owned).i;
+      for(const ci of inkCells) cellTile[ci]=dark;
     }
     let idx=[]; for(let r=0;r<gh;r++){ idx[r]=[]; for(let c=0;c<gw;c++) idx[r][c]=cellTile[r*gw+c]; }
     // 4. clean up (two gentle passes): kill speckle, fill pinholes, drop lone strays
