@@ -22,6 +22,25 @@ def crop(src, dst, x0, y0, x1, y1, scale=1.0):
     return pm.width, pm.height
 
 
+def crop_px(src, dst, x0, y0, x1, y1):
+    """Crop in the source PNG's OWN pixels, and write out at that same resolution.
+
+    PyMuPDF measures an image in points using whatever dpi the file declares - a 96 dpi screenshot
+    and a 200 dpi page render therefore need different factors, which is a trap worth removing:
+    the ratio is derived here instead of being passed in.
+    """
+    path = os.path.join(D, src + ".png")
+    d = fitz.open(path)
+    with open(path, "rb") as f:
+        head = f.read(32)
+    w = int.from_bytes(head[16:20], "big")          # PNG IHDR width, the file's true pixels
+    k = d[0].rect.width / w                          # points per pixel
+    pm = d[0].get_pixmap(clip=fitz.Rect(x0 * k, y0 * k, x1 * k, y1 * k),
+                         matrix=fitz.Matrix(1 / k, 1 / k))
+    pm.save(os.path.join(D, dst + ".png"))
+    return pm.width, pm.height
+
+
 def content_box(name, margin=18, white=246):
     """Pixel bounding box of everything that is not the white workspace, plus a margin."""
     d = fitz.open(os.path.join(D, name + ".png"))
