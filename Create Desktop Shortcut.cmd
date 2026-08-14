@@ -16,6 +16,12 @@ REM ===============================================================
 setlocal
 set "SANGALA_HOME=%~dp0"
 set "SANGALA_TARGET=%~dp0SangalaMosaic.exe"
+REM  THE SHORTCUT TAKES ITS PICTURE FROM Turaco.ico, NOT FROM THE EXE. Windows caches an icon
+REM  against the file it came from, so rebuilding the launcher in place leaves the Desktop showing
+REM  the OLD picture however many times the shortcut is remade - clearing the cache does not shift
+REM  it, but a file Windows has not cached does. The icon's home is the .ico anyway, and the exe
+REM  still carries it for anyone who runs the exe directly.
+set "SANGALA_ICON=%~dp0Turaco.ico"
 
 echo.
 echo   Creating a Desktop shortcut for Sangala Mosaic...
@@ -36,7 +42,7 @@ REM  spaces or apostrophes cannot break the quoting. SpecialFolders
 REM  finds the real Desktop even when OneDrive has redirected it. The
 REM  turaco icon is embedded in the exe, so the shortcut takes its icon
 REM  straight from the target.
-powershell -NoProfile -Command "try { $ws = New-Object -ComObject WScript.Shell; $desktop = $ws.SpecialFolders('Desktop'); $path = Join-Path $desktop 'Sangala Mosaic.lnk'; $lnk = $ws.CreateShortcut($path); $lnk.TargetPath = $env:SANGALA_TARGET; $lnk.WorkingDirectory = $env:SANGALA_HOME.TrimEnd('\'); $lnk.IconLocation = $env:SANGALA_TARGET + ',0'; $lnk.Description = 'Sangala Mosaic - Mosaic Design Tool'; $lnk.Save(); Write-Host ''; Write-Host ('   Shortcut created: ' + $path); exit 0 } catch { Write-Host ''; Write-Host ('   Could not create the shortcut: ' + $_.Exception.Message); exit 1 }"
+powershell -NoProfile -Command "try { $ws = New-Object -ComObject WScript.Shell; $desktop = $ws.SpecialFolders('Desktop'); $path = Join-Path $desktop 'Sangala Mosaic.lnk'; $lnk = $ws.CreateShortcut($path); $lnk.TargetPath = $env:SANGALA_TARGET; $lnk.WorkingDirectory = $env:SANGALA_HOME.TrimEnd('\'); $lnk.IconLocation = $env:SANGALA_ICON + ',0'; $lnk.Description = 'Sangala Mosaic - Mosaic Design Tool'; $lnk.Save(); Write-Host ''; Write-Host ('   Shortcut created: ' + $path); exit 0 } catch { Write-Host ''; Write-Host ('   Could not create the shortcut: ' + $_.Exception.Message); exit 1 }"
 
 if errorlevel 1 (
   echo.
