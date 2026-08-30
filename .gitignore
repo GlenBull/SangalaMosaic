@@ -8,3 +8,11 @@ Desktop.ini
 
 # Archived doc versions — the main Documents folder shows only the current version
 Documents/.Archive/
+
+# ARCHIVE FOLDERS DO NOT BELONG IN A REPOSITORY. Git already holds every prior version of every
+# tracked file - that is what it is for - so an Archive inside it stores the old versions twice.
+# Archive is a Dropbox idea, for folders that have no history of their own. 81 files and ~38 MB
+# across the three repositories were tracked this way before 2026-08-30. The folders stay on disk;
+# they are simply not carried.
+Archive/
+.Archive/
