@@ -277,7 +277,8 @@
     </div>
     <!-- Tiles read from a photo keep their own set. They are still real LEGO colors - the reading snaps each
          one to the nearest - but they are the tiles the student actually has, so they are not mixed into the
-         standard 27. -->
+         built-in palette (2026-09-03: 62 real tile colors - the original 27 plus every other color LEGO's
+         own Pick a Brick currently sells for the flat 1x1 tile). -->
     <div id="photoset" style="display:none;margin-top:.55rem">
       <div style="font-size:.8rem;font-weight:700;color:#5a4a34">Custom Tiles <span id="photocount" style="font-weight:400;color:#8a7a5c"></span></div>
       <div id="swphoto" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:.35rem"></div>
@@ -1005,13 +1006,64 @@
     {name:"Magenta",       rgb:[156,0,107]},
     {name:"Pink",          rgb:[232,145,192]},
     {name:"Very Light Gray", rgb:[205,208,206]},   // real LEGO grays appended (never inserted - saved files index by position)
-    {name:"Medium Gray",   rgb:[108,110,104]}
+    {name:"Medium Gray",   rgb:[108,110,104]},
+    // EVERY COLOR LEGO's OWN PICK A BRICK CURRENTLY SELLS for the FLAT TILE 1X1 (design 3070), that
+    // is not already one of the 27 above by name. Glen, 2026-09-03: "I need to be able to use all
+    // the different colors of tiles that can be ordered through the LEGO Pick-a-Brick site" - the 27
+    // above are a hand-curated subset; PAB currently lists 45 colors for this element, and these are
+    // the 35 of them not already named above. Read straight from LEGO's own searchElements API
+    // (https://www.lego.com/api/graphql/PickABrickQuery, query "3070", perPage 100 - one page held
+    // all 45), not approximated from BrickLink, so the name and hex are LEGO's own. APPENDED after
+    // the 27, never inserted before or between them, for the same reason the grays above were: a
+    // saved .mosaic file names a color by its INDEX in this array, and inserting earlier would
+    // silently recolor every design saved before today. A few of these sit close in hue to a color
+    // already above (Earth Blue/Dark Blue, Earth Green/Dark Green) - LEGO's PAB API returns its own
+    // older official name where BrickLink renamed the color, and the two entries were left standing
+    // side by side rather than guessed to be identical and merged.
+    {name:"Aqua",                   rgb:[211,242,234]},
+    {name:"Blue Violet",            rgb:[109,108,173]},
+    {name:"Brick Yellow",           rgb:[204,185,141]},
+    {name:"Bright Blue",            rgb:[30,90,168]},
+    {name:"Bright Bluish Green",    rgb:[0,152,148]},
+    {name:"Bright Orange",          rgb:[214,121,35]},
+    {name:"Bright Purple",          rgb:[200,80,155]},
+    {name:"Bright Red",             rgb:[180,0,0]},
+    {name:"Bright Reddish Violet",  rgb:[144,31,118]},
+    {name:"Bright Yellow",          rgb:[250,200,10]},
+    {name:"Bright Yellowish Green", rgb:[165,202,24]},
+    {name:"Cool Yellow",            rgb:[255,236,108]},
+    {name:"Dark Orange",            rgb:[145,80,28]},
+    {name:"Dark Stone Grey",        rgb:[100,100,100]},
+    {name:"Earth Blue",             rgb:[25,50,90]},
+    {name:"Earth Green",            rgb:[0,69,26]},
+    {name:"Flame Yellowish Orange", rgb:[252,172,0]},
+    {name:"Lavender",               rgb:[205,164,222]},
+    {name:"Light Nougat",           rgb:[225,190,161]},
+    {name:"Light Purple",           rgb:[255,158,205]},
+    {name:"Light Royal Blue",       rgb:[157,195,247]},
+    {name:"Medium Azur",            rgb:[104,195,226]},
+    {name:"Medium Lavender",        rgb:[160,110,185]},
+    {name:"Medium Lilac",           rgb:[68,26,145]},
+    {name:"Medium Nougat",          rgb:[170,125,85]},
+    {name:"Medium Stone Grey",      rgb:[150,150,150]},
+    {name:"New Dark Red",           rgb:[114,0,18]},
+    {name:"Olive Green",            rgb:[119,119,78]},
+    {name:"Reddish Orange",         rgb:[202,76,11]},
+    {name:"Sand Blue",              rgb:[112,129,154]},
+    {name:"Sand Yellow",            rgb:[137,125,98]},
+    {name:"Spring Yellowish Green", rgb:[226,249,154]},
+    {name:"Vibrant Coral",          rgb:[240,109,120]},
+    {name:"Vibrant Yellow",         rgb:[255,255,0]},
+    {name:"Warm Pink",              rgb:[223,158,159]}
   ].map(p=>({name:p.name, rgb:p.rgb, own:true}));
 
   // Colors that exist for DOTS but not for tiles. A dot is a sticker or a stroke of marker, so the
-  // palette is not limited to colors LEGO has actually molded - the reason the tile palette stops at
-  // 27 does not apply. They are APPENDED, never inserted, because saved files index the palette by
-  // position. They are hidden unless the medium is Dots, and build() will not use them either.
+  // palette is not limited to colors LEGO has actually molded for this tile - the reason the real
+  // tile palette above is bounded does not apply. They are APPENDED, never inserted, because saved
+  // files index the palette by position. They are hidden unless the medium is Dots, and build() will
+  // not use them either. (2026-09-03: "Lavender" here was renamed to "Lilac" - unlike the rest of
+  // this list, it collided by name with a real tile color just added above; a name is display-only
+  // and not saved, so the rename is free, and the RGB is untouched.)
   DOT_ONLY_FROM = PALETTE.length;
   [
     {name:"Crimson",      rgb:[190,30,60]},   {name:"Coral",        rgb:[247,120,100]},
@@ -1020,7 +1072,7 @@
     {name:"Mint",         rgb:[150,214,180]}, {name:"Teal",         rgb:[35,140,140]},
     {name:"Turquoise",    rgb:[60,190,190]},  {name:"Sky",          rgb:[150,200,240]},
     {name:"Indigo",       rgb:[60,70,150]},   {name:"Violet",       rgb:[130,90,180]},
-    {name:"Lavender",     rgb:[200,180,225]}, {name:"Rose",         rgb:[240,160,180]},
+    {name:"Lilac",        rgb:[200,180,225]}, {name:"Rose",         rgb:[240,160,180]},
     {name:"Cream",        rgb:[248,240,215]}, {name:"Charcoal",     rgb:[60,60,64]}
   ].forEach(p=>PALETTE.push({name:p.name, rgb:p.rgb, own:true, dotOnly:true}));
 
