@@ -240,29 +240,30 @@ def fig_exaggerate(proto, styl, pp, ps, out):
         lab = chr(65 + r) if r < 26 else "A" + chr(65 + r - 26)
         d.text((pad/2, pad + r*cell + cell/2), lab, fill=(90,80,60), font=f, anchor="mm")
     over = captioned(img, "Stylized tiles laid over the ghosted prototype", 13, True)
-    tp = sum(len(s) for k, s in pp.items()); ts = sum(len(s) for k, s in ps.items() if k != "Ground")
-    rows = [("Part", "Prototype", "Stylized", "Share of the figure", "Shape")]
-    shape = {"Crown":"tan mound to yellow fan", "Head":"gray patch to black disc", "Bill":"1-tile stub to red block",
-             "Neck":"curved run to straight bar", "Body":"slanted mass to upright oval", "Legs":"bent stems to straight bars",
-             "Feet":"scattered toes to one row"}
-    for k in ["Crown","Head","Bill","Neck","Body","Legs","Feet"]:
-        a, b = len(pp[k]), len(ps[k]); pa, pb = 100*a/tp, 100*b/ts
-        d_ = pb - pa
-        note = ("grew, %d%% to %d%%" if d_ >= 1 else "shrank, %d%% to %d%%" if d_ <= -1 else "held, %d%% to %d%%") % (round(pa), round(pb))
-        rows.append((k, "%d tile%s" % (a, "" if a == 1 else "s"), "%d tile%s" % (b, "" if b == 1 else "s"), note, shape[k]))
-    rows.append(("Figure", "%d tiles" % tp, "%d tiles" % ts, "", "ground band added: %d tiles" % len(ps["Ground"])))
+    # The part plan: the decisions a student writes down for each part BEFORE painting, filled in for the crane.
+    rows = [("Part", "Distinctive Feature?", "Simple Shape", "One Color", "Kept or Redrawn")]
+    plan = [("Crown", "yes", "fan of two prongs", "Yellow", "redrawn, larger"),
+            ("Head",  "yes", "disc with a white eye", "Black", "kept, trimmed"),
+            ("Bill",  "yes", "wedge", "Red", "redrawn, larger"),
+            ("Neck",  "yes", "straight bar", "Dark Gray", "redrawn"),
+            ("Body",  "no",  "upright oval", "Light Gray", "redrawn, smaller"),
+            ("Legs",  "no",  "two bars", "Black", "kept, straightened"),
+            ("Feet",  "no",  "one row", "Black", "redrawn"),
+            ("Ground","new", "band", "Green", "added")]
+    rows += plan
     fb, fr = font(13, True), font(13)
-    cw = [66, 90, 90, 160, 220]; rh = 26
+    cw = [70, 150, 160, 90, 150]; rh = 26
     tbl = Image.new("RGB", (sum(cw) + 20, rh*len(rows) + 20), (255,255,255)); d = ImageDraw.Draw(tbl)
     for i, row in enumerate(rows):
         x = 10; y = 10 + i*rh
-        if i == 0 or i == len(rows)-1: d.line([10, y + rh - 2, tbl.width - 10, y + rh - 2], fill=(120,110,90), width=1)
+        if i == 0: d.line([10, y + rh - 2, tbl.width - 10, y + rh - 2], fill=(120,110,90), width=1)
         for j, cellt in enumerate(row):
             d.text((x + 4, y + rh/2), cellt, fill=(40,35,25), font=fb if i == 0 else fr, anchor="lm"); x += cw[j]
-    tbl = captioned(tbl, "Tiles per part, before and after", 13, True)
-    tbl = captioned(tbl, "The identifying parts (crown, bill) take a larger share of the figure; the bulk (body) takes a smaller one. Every part also changed shape.", 12, width=tbl.width)
+    d.line([10, 10 + len(rows)*rh - 2, tbl.width - 10, 10 + len(rows)*rh - 2], fill=(120,110,90), width=1)
+    tbl = captioned(tbl, "The part plan, filled in for the crane", 13, True)
+    tbl = captioned(tbl, "A distinctive feature is a part the figure cannot be recognized without. Cover it with a thumb: if the picture stops being a crane, the part is distinctive. Distinctive features are made larger and clearer than the photo shows them; the other parts are made smaller and simpler. A blank copy of this table is the plan for any figure.", 12, width=tbl.width)
     img = hstack([over, tbl], gap=30, top=30)
-    title(img, "Step 6. Exaggerate what identifies the figure, compact what does not", 10, 17)
+    title(img, "Step 6. Enlarge the distinctive features, shrink the rest", 10, 17)
     img.save(os.path.join(out, "Fig 5 - Exaggerate and Compact.png"))
 
 def make_all(proto, styl, out):
