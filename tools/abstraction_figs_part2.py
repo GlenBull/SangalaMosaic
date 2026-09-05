@@ -133,20 +133,21 @@ def fig_two_levels(proto, styl, out):
     img.save(os.path.join(out, "Fig 1 - Two Levels.png"))
 
 def outlined_grid(g, parts, cell=15):
-    ol = [("rect", bbox(s), PART_COLOR[k]) for k, s in parts.items() if s]
-    img = draw_grid(g, cell, outline=ol)
+    img = draw_grid(g, cell)
     d = ImageDraw.Draw(img); f = font(12, True)
     pad = 22
     for k, s in parts.items():
         if not s: continue
         r0, c0, r1, c1 = bbox(s)
+        x0, y0, x1, y1 = pad + c0*cell - 2, pad + r0*cell - 2, pad + (c1+1)*cell + 1, pad + (r1+1)*cell + 1
+        d.rectangle([x0, y0, x1, y1], outline=PART_COLOR[k], width=2)     # sits in the seam, covers no tile
         if k == "Body":
-            x = pad + c0*cell - 6; anchor = "rm"
+            x = x0 - 6; anchor = "rm"
         elif k == "Feet" and parts.get("Ground"):
-            x = pad + bbox(parts["Ground"])[1]*cell - 6; anchor = "rm"
+            x = pad + bbox(parts["Ground"])[1]*cell - 8; anchor = "rm"
         else:
-            x = pad + (c1+1)*cell + 6; anchor = "lm"
-        y = pad + r0*cell + (r1-r0+1)*cell/2
+            x = x1 + 6; anchor = "lm"
+        y = (y0 + y1)/2
         d.text((x, y), "%s  %d" % (k, len(s)), fill=PART_COLOR[k], font=f, anchor=anchor)
     return img
 
