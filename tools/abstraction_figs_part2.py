@@ -26,14 +26,16 @@ def parts_proto(g):
     return {k: live(g, v) for k, v in P.items()}
 
 def parts_styl(g):
-    crown = cells((6,17,8,21))
-    bill  = {(r, c) for r in range(9, 12) for c in range(17, 23) if g[r][c] == 2}
-    neck  = {(11,18), (11,19)} | cells((12,18,14,19), (15,17,15,19))
-    head  = cells((9,17,11,21)) - bill - neck
-    legs  = cells((22,13,26,16)) | {(21,16)}
-    body  = (cells((16,9,21,19)) - legs) | {(22,17)}
-    feet  = {(27, c) for c in range(9, 25) if g[27][c] == 1}
-    ground = {(r, c) for r in range(27, 31) for c in range(8, 26) if g[r][c] == 11}
+    """Crane 5.mosaic, 0-based: crown D-F, head G-J, bill the red cells, neck K-O at columns 19-20,
+    body O-U, legs V-AA (one tile wide each), feet the black run on AB, ground the green."""
+    crown = cells((3,17,5,21))
+    bill  = {(r, c) for r in range(6, 10) for c in range(17, 24) if g[r][c] == 2}
+    neck  = {(9,18), (9,19)} | cells((10,18,14,19))
+    head  = cells((6,17,9,23)) - bill - neck
+    legs  = cells((21,13,21,16)) | {(r, c) for r in range(22, 27) for c in (13, 15)}
+    body  = {(r, c) for r in range(14, 21) for c in range(8, 20)} - neck
+    feet  = {(27, c) for c in range(8, 26) if g[27][c] == 1}
+    ground = {(r, c) for r in range(27, 31) for c in range(6, 27) if g[r][c] == 11}
     P = {"Crown":crown, "Head":head, "Bill":bill, "Neck":neck, "Body":body, "Legs":legs, "Feet":feet, "Ground":ground}
     return {k: live(g, v) for k, v in P.items()}
 
@@ -125,7 +127,7 @@ def fig_two_levels(proto, styl, out):
     na, ka = sum(1 for r in proto for v in r if v >= 0), len({v for r in proto for v in r if v >= 0})
     nb, kb = sum(1 for r in styl for v in r if v >= 0), len({v for r in styl for v in r if v >= 0})
     a = captioned(a, "Prototype: Build It! from the photo. %d tiles, %d colors" % (na, ka), 14, True)
-    b = captioned(b, "Stylized: the same crane, redrawn by hand. %d tiles, %d colors" % (nb, kb), 14, True)
+    b = captioned(b, "Stylized: the same crane, redrawn by hand. %d tiles, %d colors (sky left to the plate)" % (nb, kb), 14, True)
     img = hstack([a, b], top=30)
     title(img, "The same figure at two levels of abstraction", 12, 18)
     img.save(os.path.join(out, "Fig 1 - Two Levels.png"))
@@ -161,18 +163,18 @@ def fig_simple_shapes(proto, styl, pp, ps, out):
       ("Body becomes an OVAL",  "Body", [("poly", fit_ellipse(pp["Body"], 1.02), (0,150,90))],   [("poly", fit_ellipse(ps["Body"], 1.08), (0,150,90))]),
       ("Neck becomes a BAR",    "Neck", [("poly", fit_bar(pp["Neck"]), (0,120,200))],      [("poly", fit_bar(ps["Neck"]), (0,120,200))]),
       ("Head becomes a DISC",   "Head", [("poly", fit_ellipse(pp["Head"], 1.05), (30,30,30))], [("poly", fit_ellipse(ps["Head"], 1.05), (30,30,30))]),
-      ("Bill becomes a WEDGE",  "Bill", [("poly", [(5,25),(5,27.5),(7,25)], (200,30,30))], [("poly", [(10,21),(10.5,23.5),(12,21)], (200,30,30))]),
+      ("Bill becomes a WEDGE",  "Bill", [("poly", [(5,25),(5,27.5),(7,25)], (200,30,30))], [("poly", [(8,21),(8.6,24.3),(10,21)], (200,30,30))]),
       ("Legs become BARS",      "Legs", [("rect", (22,12,27,14), (120,60,180)), ("rect", (22,16,27,17), (120,60,180))],
-                                        [("rect", (22,13,26,14), (120,60,180)), ("rect", (22,15,26,16), (120,60,180))]),
-      ("Feet become a BAND",    "Feet", [("rect", (28,10,29,20), (60,120,40))],       [("rect", (27,9,29,23), (60,120,40))]),
+                                        [("rect", (21,13,26,13), (120,60,180)), ("rect", (21,15,26,15), (120,60,180))]),
+      ("Feet become a BAND",    "Feet", [("rect", (28,10,29,20), (60,120,40))],       [("rect", (27,7,30,24), (60,120,40))]),
     ]
     tops, bots, labels = [], [], []
     for label, key, olA, olB in spec:
         hiA = pp[key] | (pp["Feet"] if key == "Legs" else set())
         hiB = ps[key] | (ps["Ground"] if key == "Feet" else set()) | (ps["Feet"] if key == "Legs" else set())
         ra, rb = bbox(hiA), bbox(hiB)
-        if key == "Bill": ra = (4, 24, 7, 27); rb = (9, 20, 12, 23)
-        if key == "Feet": ra = (27, 9, 30, 21); rb = (26, 8, 29, 24)
+        if key == "Bill": ra = (4, 24, 7, 27); rb = (7, 20, 10, 24)
+        if key == "Feet": ra = (27, 9, 30, 21); rb = (26, 7, 30, 26)
         m = 2 if key == "Body" else 1
         tops.append(crop_img(proto, *ra, cell=16, margin=m, hi=hiA, outline=olA))
         bots.append(crop_img(styl,  *rb, cell=16, margin=m, hi=hiB, outline=olB))
@@ -197,15 +199,15 @@ def fig_simple_shapes(proto, styl, pp, ps, out):
 
 def fig_grid_rules(proto, styl, pp, ps, out):
     a1 = crop_img(proto, 4, 23, 7, 27, cell=22, hi={(5,26), (6,25), (6,26)})
-    b1 = crop_img(styl, 9, 20, 12, 23, cell=22, hi=ps["Bill"])
+    b1 = crop_img(styl, 7, 20, 10, 24, cell=22, hi=ps["Bill"])
     a2 = crop_img(proto, 26, 9, 30, 21, cell=16, hi=pp["Feet"])
-    b2 = crop_img(styl, 25, 8, 29, 24, cell=16, hi=ps["Feet"] | ps["Ground"])
-    bill_pair = hstack([captioned(a1, "prototype: a 1-tile bill", 11), captioned(b1, "stylized: a 2 x 2 block", 11)], gap=10, pad=4)
+    b2 = crop_img(styl, 25, 7, 30, 26, cell=16, hi=ps["Feet"] | ps["Ground"])
+    bill_pair = hstack([captioned(a1, "prototype: a 1-tile bill", 11), captioned(b1, "stylized: a solid red block", 11)], gap=10, pad=4)
     feet_pair = hstack([captioned(a2, "prototype: toes 1 tile wide, scattered", 11), captioned(b2, "stylized: one solid row on a band", 11)], gap=10, pad=4)
     left = vstack([bill_pair, feet_pair], gap=10, pad=6)
     left = captioned(left, "Rule 1. A feature narrower than two tiles does not survive: widen it or drop it", 13, True, width=left.width)
     a3 = crop_img(proto, 10, 6, 23, 25, cell=14, hi=pp["Body"], outline=[("line", ((11, 24.5), (22.5, 7)), (220,40,40))])
-    b3 = crop_img(styl, 15, 8, 23, 22, cell=14, hi=ps["Body"], outline=[("rect", bbox(ps["Body"]), (220,40,40))])
+    b3 = crop_img(styl, 13, 7, 22, 21, cell=14, hi=ps["Body"], outline=[("rect", bbox(ps["Body"]), (220,40,40))])
     right = hstack([captioned(a3, "prototype: the back runs at a slant, so every row steps", 11, width=a3.width+20),
                     captioned(b3, "stylized: the body sits upright, edges run with the grid", 11, width=b3.width+20)], gap=10, pad=4)
     right = captioned(right, "Rule 2. A diagonal renders as a staircase: straighten it where the pose allows", 13, True, width=right.width)
@@ -240,7 +242,7 @@ def fig_exaggerate(proto, styl, pp, ps, out):
     tp = sum(len(s) for k, s in pp.items()); ts = sum(len(s) for k, s in ps.items() if k != "Ground")
     rows = [("Part", "Prototype", "Stylized", "Share of the figure", "Shape")]
     shape = {"Crown":"tan mound to yellow fan", "Head":"gray patch to black disc", "Bill":"1-tile stub to red block",
-             "Neck":"curved run to straight bar", "Body":"slanted mass to upright oval", "Legs":"1-wide stems to 2-wide bars",
+             "Neck":"curved run to straight bar", "Body":"slanted mass to upright oval", "Legs":"bent stems to straight bars",
              "Feet":"scattered toes to one row"}
     for k in ["Crown","Head","Bill","Neck","Body","Legs","Feet"]:
         a, b = len(pp[k]), len(ps[k]); pa, pb = 100*a/tp, 100*b/ts
@@ -263,7 +265,6 @@ def fig_exaggerate(proto, styl, pp, ps, out):
     img.save(os.path.join(out, "Fig 5 - Exaggerate and Compact.png"))
 
 def make_all(proto, styl, out):
-    styl = clean_stylized(styl)
     pp, ps = parts_proto(proto), parts_styl(styl)
     fig_two_levels(proto, styl, out)
     fig_parts(proto, styl, pp, ps, out)

@@ -80,6 +80,13 @@ def sample_stylized():
                     out[r][c] = max(votes.items(), key=lambda kv: (kv[1], kv[0] >= 0))[0]
     return src, out
 
+def read_mosaic(path, sky=(18,)):
+    """The built grid of a saved .mosaic project. Tiles in `sky` (Medium Blue, the sky the source image
+    carried) are treated as empty so the baseplate shows through, which is how the picture reads."""
+    import json
+    b = json.load(open(path, encoding="utf-8"))["built"]
+    return [[-1 if v < 0 or v in sky else v for v in row] for row in b["idx"]]
+
 # ---- drawing ------------------------------------------------------------------------------------
 def font(sz, bold=False):
     for name in (["arialbd.ttf"] if bold else ["arial.ttf"]):
@@ -142,10 +149,10 @@ def region(g, r0, c0, r1, c1):
 
 if __name__ == "__main__":
     proto = read_grid(sys.argv[1]); out = sys.argv[2]; os.makedirs(out, exist_ok=True)
-    src, styl = sample_stylized()
     sys.path.insert(0, HERE)
-    from abstraction_figs_part2 import make_all, clean_stylized
-    styl = clean_stylized(styl)
+    from abstraction_figs_part2 import make_all
+    # the stylized grid is Glen's own: Projects/Crane 5.mosaic, the build behind the lesson's picture
+    styl = read_mosaic(sys.argv[3] if len(sys.argv) > 3 else os.path.join(os.path.dirname(HERE), "Projects", "Crane 5.mosaic"))
     draw_grid(proto, 16).save(os.path.join(out, "grid_prototype.png"))
     draw_grid(styl, 16).save(os.path.join(out, "grid_stylized.png"))
     with open(os.path.join(out, "stylized.txt"), "w") as f:
