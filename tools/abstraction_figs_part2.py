@@ -20,9 +20,11 @@ def parts_proto(g):
     head  = cells((4,22,4,25), (5,20,5,26), (6,21,6,26)) - bill
     neck  = cells((7,21,10,24), (11,21,11,24), (12,23,12,24))
     body  = cells((11,7,21,24), (22,7,22,9)) - neck
+    wing  = {(r, c) for (r, c) in body if g[r][c] in (1, 8, 9, 10, 27, 51)}
+    body  = body - wing
     legs  = cells((22,11,27,18))
     feet  = cells((28,10,29,20))
-    P = {"Crown":crown, "Head":head, "Bill":bill, "Neck":neck, "Body":body, "Legs":legs, "Feet":feet}
+    P = {"Crown":crown, "Head":head, "Bill":bill, "Neck":neck, "Body":body, "Wing":wing, "Legs":legs, "Feet":feet}
     return {k: live(g, v) for k, v in P.items()}
 
 def parts_styl(g):
@@ -34,13 +36,15 @@ def parts_styl(g):
     head  = cells((6,17,9,23)) - bill - neck
     legs  = cells((21,13,21,16)) | {(r, c) for r in range(22, 27) for c in (13, 15)}
     body  = {(r, c) for r in range(14, 21) for c in range(8, 20)} - neck
+    wing  = {(r, c) for (r, c) in body if g[r][c] == 26}          # the Medium Gray band across the body
+    body  = body - wing
     feet  = {(27, c) for c in range(8, 26) if g[27][c] == 1}
     ground = {(r, c) for r in range(27, 31) for c in range(6, 27) if g[r][c] == 11}
-    P = {"Crown":crown, "Head":head, "Bill":bill, "Neck":neck, "Body":body, "Legs":legs, "Feet":feet, "Ground":ground}
+    P = {"Crown":crown, "Head":head, "Bill":bill, "Neck":neck, "Body":body, "Wing":wing, "Legs":legs, "Feet":feet, "Ground":ground}
     return {k: live(g, v) for k, v in P.items()}
 
 PART_COLOR = {"Crown":(230,160,0), "Head":(30,30,30), "Bill":(200,30,30), "Neck":(0,120,200),
-              "Body":(0,150,90), "Legs":(120,60,180), "Feet":(120,60,180), "Ground":(60,120,40)}
+              "Body":(0,150,90), "Wing":(150,90,0), "Legs":(120,60,180), "Feet":(120,60,180), "Ground":(60,120,40)}
 
 def bbox(s):
     rs = [r for r, c in s]; cs = [c for r, c in s]
@@ -143,6 +147,8 @@ def outlined_grid(g, parts, cell=15):
         d.rectangle([x0, y0, x1, y1], outline=PART_COLOR[k], width=2)     # sits in the seam, covers no tile
         if k == "Body":
             x = x0 - 6; anchor = "rm"
+        elif k == "Wing":
+            x = x0 - 6; anchor = "rm"; y1 = y1 + 24   # below the Body label, which sits at Body's middle
         elif k == "Feet" and parts.get("Ground"):
             x = pad + bbox(parts["Ground"])[1]*cell - 8; anchor = "rm"
         else:
@@ -161,7 +167,8 @@ def fig_parts(proto, styl, pp, ps, out):
 def fig_simple_shapes(proto, styl, pp, ps, out):
     cols = []
     spec = [
-      ("Body becomes an OVAL",  "Body", [("poly", fit_ellipse(pp["Body"], 1.02), (0,150,90))],   [("poly", fit_ellipse(ps["Body"], 1.08), (0,150,90))]),
+      ("Body becomes an OVAL",  "Body", [("poly", fit_ellipse(pp["Body"] | pp["Wing"], 1.02), (0,150,90))],   [("poly", fit_ellipse(ps["Body"] | ps["Wing"], 1.08), (0,150,90))]),
+      ("Wing becomes a STRIPE", "Wing", [("poly", fit_bar(pp["Wing"], 0.1), (150,90,0))],  [("poly", fit_bar(ps["Wing"], 0.1), (150,90,0))]),
       ("Neck becomes a BAR",    "Neck", [("poly", fit_bar(pp["Neck"]), (0,120,200))],      [("poly", fit_bar(ps["Neck"]), (0,120,200))]),
       ("Head becomes a DISC",   "Head", [("poly", fit_ellipse(pp["Head"], 1.05), (30,30,30))], [("poly", fit_ellipse(ps["Head"], 1.05), (30,30,30))]),
       ("Bill becomes a WEDGE",  "Bill", [("poly", [(5,25),(5,27.5),(7,25)], (200,30,30))], [("poly", [(8,21),(8.6,24.3),(10,21)], (200,30,30))]),
@@ -171,12 +178,12 @@ def fig_simple_shapes(proto, styl, pp, ps, out):
     ]
     tops, bots, labels = [], [], []
     for label, key, olA, olB in spec:
-        hiA = pp[key] | (pp["Feet"] if key == "Legs" else set())
-        hiB = ps[key] | (ps["Ground"] if key == "Feet" else set()) | (ps["Feet"] if key == "Legs" else set())
+        hiA = pp[key] | (pp["Feet"] if key == "Legs" else set()) | (pp["Wing"] if key == "Body" else set())
+        hiB = ps[key] | (ps["Ground"] if key == "Feet" else set()) | (ps["Feet"] if key == "Legs" else set()) | (ps["Wing"] if key == "Body" else set())
         ra, rb = bbox(hiA), bbox(hiB)
         if key == "Bill": ra = (4, 24, 7, 27); rb = (7, 20, 10, 24)
         if key == "Feet": ra = (27, 9, 30, 21); rb = (26, 7, 30, 26)
-        m = 2 if key == "Body" else 1
+        m = 3 if key in ("Body", "Wing") else 1
         tops.append(crop_img(proto, *ra, cell=16, margin=m, hi=hiA, outline=olA))
         bots.append(crop_img(styl,  *rb, cell=16, margin=m, hi=hiB, outline=olB))
         labels.append(label)
@@ -207,8 +214,8 @@ def fig_grid_rules(proto, styl, pp, ps, out):
     feet_pair = hstack([captioned(a2, "prototype: toes 1 tile wide, scattered", 11), captioned(b2, "stylized: one solid row on a band", 11)], gap=10, pad=4)
     left = vstack([bill_pair, feet_pair], gap=10, pad=6)
     left = captioned(left, "Rule 1. A feature narrower than two tiles does not survive: widen it or drop it", 13, True, width=left.width)
-    a3 = crop_img(proto, 10, 6, 23, 25, cell=14, hi=pp["Body"], outline=[("line", ((11, 24.5), (22.5, 7)), (220,40,40))])
-    b3 = crop_img(styl, 13, 7, 22, 21, cell=14, hi=ps["Body"], outline=[("rect", bbox(ps["Body"]), (220,40,40))])
+    a3 = crop_img(proto, 10, 6, 23, 25, cell=14, hi=pp["Body"] | pp["Wing"], outline=[("line", ((11, 24.5), (22.5, 7)), (220,40,40))])
+    b3 = crop_img(styl, 13, 7, 22, 21, cell=14, hi=ps["Body"] | ps["Wing"], outline=[("rect", bbox(ps["Body"] | ps["Wing"]), (220,40,40))])
     right = hstack([captioned(a3, "prototype: the back runs at a slant, so every row steps", 11, width=a3.width+20),
                     captioned(b3, "stylized: the body sits upright, edges run with the grid", 11, width=b3.width+20)], gap=10, pad=4)
     right = captioned(right, "Rule 2. A diagonal renders as a staircase: straighten it where the pose allows", 13, True, width=right.width)
@@ -247,12 +254,13 @@ def fig_exaggerate(proto, styl, pp, ps, out):
             ("Bill",  "yes", "wedge", "Red", "redrawn, larger"),
             ("Neck",  "yes", "straight bar", "Dark Gray", "redrawn"),
             ("Body",  "no",  "upright oval", "Light Gray", "redrawn, smaller"),
+            ("Wing",  "no",  "slanted stripe across the body", "Dark Gray", "kept, one color"),
             ("Legs",  "no",  "two bars", "Black", "kept, straightened"),
             ("Feet",  "no",  "one row", "Black", "redrawn"),
             ("Ground","new", "band", "Green", "added")]
     rows += plan
     fb, fr = font(13, True), font(13)
-    cw = [70, 150, 160, 90, 150]; rh = 26
+    cw = [70, 150, 210, 90, 150]; rh = 26
     tbl = Image.new("RGB", (sum(cw) + 20, rh*len(rows) + 20), (255,255,255)); d = ImageDraw.Draw(tbl)
     for i, row in enumerate(rows):
         x = 10; y = 10 + i*rh
