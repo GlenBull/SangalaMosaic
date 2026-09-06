@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SANGALA_MOSAIC_VERSION: 2026-09-03.92 -->
+<!-- SANGALA_MOSAIC_VERSION: 2026-09-06.93 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1152,6 +1152,10 @@
   function usableColor(i){
     return medium==="dots" ? true : (!PALETTE[i].dotOnly && TILE_ELEMENT[i]!==undefined);
   }
+  // How many colors the builder has on: owned AND usable. Every count the page shows goes through
+  // this, so a hidden color (one LEGO does not mold as a tile) is never counted - the status line
+  // once said "79 colors" over a palette showing 45 (Glen, 2026-09-06).
+  function ownedCount(){ return PALETTE.filter((p,i)=>p.own && usableColor(i)).length; }
 
   // Baseplate colors - limited to ones LEGO has actually sold as baseplates, so a design stays realistic.
   const BASEPLATE = [
@@ -1183,7 +1187,7 @@
       s.onclick=()=>{
         if(ownMode){                                                    // the ONLY way ownership changes by hand
           p.own=!p.own; refreshSwatches(); render();
-          const n=PALETTE.filter(q=>q.own).length;
+          const n=ownedCount();
           $("status").textContent = p.name+(p.own?" added to":" dropped from")+" your colors — "+n+" color"+(n!==1?"s":"")+" owned. Press Done when the list matches your box.";
           return;
         }
@@ -1246,7 +1250,7 @@
   // it now exceeds the new max - it never pushes a value UP while the builder is mid-session, which
   // would silently override a deliberate choice to build with fewer colors than owned.
   function syncColorsMax(){
-    const n = Math.max(2, PALETTE.filter((p,i)=>p.own && usableColor(i)).length);
+    const n = Math.max(2, ownedCount());
     const el = $("optColors");
     el.max = n;
     if(+el.value > n) el.value = n;
@@ -1256,7 +1260,7 @@
     syncColorsMax();
     const paintMode=(activeTool==="paint"||activeTool==="pick"||activeTool==="erase");
     const recolor = !!(built && tileTool() && (selCells.size || (selMass && massById(selMass))));
-    const nOwn=PALETTE.filter(q=>q.own).length;
+    const nOwn=ownedCount();
     const swAll=[...$("swphoto").children, ...$("swatches").children];   // both sets: Custom Tiles and Standard
     swAll.forEach(s=>{ const i=+s.dataset.i;
       if(i<0){                                                          // the None (red X) swatch
@@ -1370,7 +1374,7 @@
     ownMode=!!on;
     if(ownMode) setTool("select");                 // ownership is about the box of tiles, not about the mat
     refreshSwatches(); render();
-    const n=PALETTE.filter(q=>q.own).length;
+    const n=ownedCount();
     $("status").textContent = ownMode
       ? ("Which colors do you have? Click to add or drop them — "+n+" on now. Press Done when the list matches what is on your table.")
       : ("Your colors: "+n+" color"+(n!==1?"s":"")+". Press Build It! to remap the mosaic to them.");
