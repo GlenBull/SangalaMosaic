@@ -102,14 +102,20 @@ how fine it is. Whatever falls **inside** the frame is what gets built.
 
 1. *Move it* — drag the frame's border. *Resize it* — drag a corner (the cells stay
    square).
-2. *Across and Down* — in the Build panel's *Grid* section, set how many tiles wide and
-   tall. The standard baseplate is **32 × 32**, and that is the default. The readout
+2. *Across and Down* — click **Settings** in the top bar and set, under *Grid Controls*, how
+   many tiles wide and tall. The standard baseplate is **32 × 32**, and that is the default. The readout
    shows the real size — 32 × 32 tiles is about **256 mm ≈ 10 inches** — so you know how
    big the finished piece will be.
 3. *Show* — three checkboxes for what you see on the workspace: **Grid** (the cell lines and the
    row and column labels — numbers across the top, letters down the side — that you follow while
    building), **Baseplate** (the studded plate behind the tiles), and **Box** (the outline around
    the mosaic). Turn any of them off — turn all three off to see just the mosaic itself.
+4. *Key* — one checkbox, **Number the Tiles**, off until you turn it on. With it on, each color in
+   the mosaic gets a number, printed on every tile of that color. The colors run by family, and within a family from
+   the lightest tone to the darkest, so the browns sit together as neighbors. The same number sits
+   beside that color in a key drawn beneath the mosaic, on the printed sheet, in a saved picture,
+   and in the Tile List — so two colors that look alike in the hand (the grays, dark blue and
+   black) can be told apart by the number on the chart.
 
 Fewer tiles across make bigger, blockier tiles and a coarser picture; more make a finer
 picture that needs more, smaller tiles. Slide the frame over the part of your animal you

@@ -190,13 +190,32 @@ date convention as Sangala Studio; bump it on any shipped change.
   single-select swatch row (`#baseplates`), so the preview stays realistic.
   Visibility of the grid, the plate, and the outline is a **single `Show` control** in the Grid section —
   a `Show` label with three checkboxes, **Grid** (`#ckGrid`, `showGrid`), **Baseplate** (`#ckPlate`,
-  `showPlate`), and **Box** (`#ckBox`, `showBox`, the frame outline / bounding box) — so any or all can be
-  turned off, right down to a fully clean view (all three off over a photo = tracing view). Unchecking
+  `showPlate`) and **Box** (`#ckBox`, `showBox`, the frame outline / bounding box) — so any or all can be
+  turned off, right down to a fully clean view (all three off over a photo = tracing view).
+  **NUMBER THE TILES IS NOT ONE OF THEM** (`#ckKey`, `showKey`, default OFF, added 2026-09-11 for Natasha
+  Heny's portrait: the LEGO colors are hard to tell apart in the hand). It rode in the `Show` row as
+  **Key** until 2026-09-13, when Glen said "Key is different from the three options above it; no one would
+  know what Key does" - the other three hide or reveal something ALREADY on the mat, this one puts new
+  marks on it. So it gets its OWN labeled row - a bold `Key`, then one checkbox, **Number the Tiles** -
+  built exactly like the `Show` row and sitting parallel to it, with a sentence under it. The bold word
+  names the thing, the checkbox says what turning it on does; do not fold it back into `Show`. It numbers every tile by its color: `keyMap()` assigns 1..N in
+  `tileRows()` order - which since .96 runs BY COLOR FAMILY (`colorRank()`: eight hue bins from red, neutrals
+  last), light to dark within a family, NOT by count: numbering by count scattered the near-alike browns
+  across the key, and the point is to compare neighbors - `drawKey()` prints the number centered on the tile in
+  contrasting ink (`keyInk`, by luminance), skipping cells under 8 px, in BOTH `drawBuilt()` (screen) and
+  `mosaicImageCanvas()` (Print / Save image). **A number without its legend is a puzzle, not a key** (Glen,
+  same day, on seeing numbered tiles and nothing else): `drawLegend()` draws the legend - number, swatch,
+  color name, count, in columns as wide as the mosaic, headed "Key - N tiles in M colors" - beneath the
+  mosaic on screen (it moves with the frame) and beneath the chart in Save image
+  (`mosaicImageCanvas(opaque, legend=true)`, which grows the canvas to hold it). Print does NOT draw it:
+  the printed sheet's list (`fillPrintList`, `.plkey`) is the legend there. That list and the Tile List
+  .txt ALWAYS carry the number as their first column, whether or not Key is on, so the sheet and the tiles
+  agree. Persists in the `.mosaic` file (`showKey`; absent = off). Unchecking
   **Baseplate** hides the plate for a clean chart-style view (tiles on white); when the plate is showing,
   the internal cell lines are suppressed (studs mark the grid) and when it is hidden the cell lines return,
   so empty cells stay legible. Hiding the plate dims the color swatches (nothing to color). `syncShow()`
-  reflects `showGrid`/`showPlate`/`showBox` back onto the three checkboxes (used on load and at startup);
-  all three persist in the `.mosaic` file. Do NOT reintroduce the old separate `bShowGrid`/`bShowPlate`
+  reflects `showGrid`/`showPlate`/`showBox`/`showKey` back onto the four checkboxes (used on load and at
+  startup); all four persist in the `.mosaic` file. Do NOT reintroduce the old separate `bShowGrid`/`bShowPlate`
   buttons.
 - The workspace is **pinned to the viewport** (body flex column, 100vh, overflow hidden); the panel
   scrolls internally if tall — no page scroll.
@@ -237,8 +256,23 @@ date convention as Sangala Studio; bump it on any shipped change.
   checkboxes, so Grid on gives a printable build chart with coordinates. Enabled only when a mosaic is
   built. A repeat print reuses the already-loaded image (guards against the img `load` event not re-firing
   on an identical `src`). Do NOT revert this to a "chart + BOM" placeholder; a parts-list page can be added
-  later as a second print section.
-- Still disabled placeholders: **Settings** (image prep). No dither/contrast controls yet.
+  later as a second print section. **The sheet carries its own margin** (`#printArea{padding:8mm}` with
+  `@page{margin:4mm}`, since .97): Chrome's print dialog remembers a Margins choice, and at None the
+  coordinate strip sat on the paper's edge where no printer lays ink - Glen's print lost half of every row
+  letter and column number. Measured with headless Chrome: Default = 12 mm in (as before), None = 8 mm.
+  Do not move the safe margin back into `@page` alone; the dialog can zero that.
+- **SETTINGS OPENS AS A PANEL UNDER THE GEAR, the way Sangala Studio does it** (Glen, 2026-09-13:
+  "the settings option in studio brings up a window; this protocol was not followed in mosaic. since
+  studio was first, subsequent tools should follow the precedent set"). `#setup` is a top-level
+  `position:fixed` `.panel` (272 px, the same width Studio uses), positioned under `#bSettings` by
+  `openSettings()` and dismissed by the gear again, or by a click anywhere outside it EXCEPT the canvas -
+  so moving the grid or clicking a tile never closes it. It holds Grid Controls, Baseplate and Medium.
+  **A SETTING ONLY - never a control** (Glen, same day, on finding *Fit to Photo* in there): a button that
+  DOES something to the design belongs in `#build` beside Build It!, so `#bFitGrid` sits under the status
+  line. The gear holds what the design is made of and how it is drawn; the panel holds what you do to it.
+  It used to fold open INSIDE `#build`, which pushed the palette down the column; do not put it back.
+  **Sangala Blocks still folds its Workspace setup open inside its panel** - the same divergence, not
+  yet changed.
 - Test material in `images/`: `Crested Crane.png`, `African Buffalo (LEGO).jpg`, the crane/buffalo
   reference mosaics, `Samweli Wanda.png`.
 - **Paint / Pick / Erase are live** (left rail). After Build, the **Paint** tool hand-edits the mosaic:
