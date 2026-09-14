@@ -132,6 +132,26 @@ date convention as Sangala Studio; bump it on any shipped change.
 - Remote is live: **https://github.com/GlenBull/SangalaMosaic** (public, branch `main`). Standing
   approval covers pushing to it.
 
+## Publishing to Dropbox — part of committing, not a later step
+**WHENEVER A COMMIT IS MADE, THE DROPBOX COPY IS UPDATED TOO (Glen, 2026-09-13: "the standing protocol
+is that whenever a commit is made, the dropbox version is also updated").** `AI Sandbox\Design through
+Making\Sangala Tools\Sangala Mosaic Files` is what Jo, Moses and the students install from, so a copy
+left behind there is the version they actually get. `Update SangalaMosaic.cmd` pulling from GitHub does
+NOT excuse it — that serves only a tester who runs the updater. Mosaic sat at `.93` in Dropbox while
+this repository moved to `.102` on exactly that mistaken reasoning.
+
+**The tool is `tools\sangala_publish.py` IN THE SILHOUETTE TOOLS REPO** (it covers all three
+applications from one place). Report, fix, confirm:
+
+    python "D:\Code Projects\Silhouette Tools	ools\sangala_publish.py"
+    python "D:\Code Projects\Silhouette Tools	ools\sangala_publish.py" --publish Mosaic
+    python "D:\Code Projects\Silhouette Tools	ools\sangala_publish.py"
+
+**Documents go there too, and without being asked:** a new version of a document about Mosaic is copied
+into that same folder and the version it supersedes is moved into the folder's own `Archive`, so the
+folder shows only the current version. A document that governs more than one application goes at the TOP
+level of `Sangala Tools` instead, where Jo and Moses both read.
+
 ## Current state (as of 2026-07-23)
 - **Four-region layout** matching Studio: denim menu bar, left tool rail, cork workspace, right
   "Build" control panel. Subtitle "Mosaic Design Tool" (Title Case).
