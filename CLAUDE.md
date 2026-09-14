@@ -134,7 +134,9 @@ date convention as Sangala Studio; bump it on any shipped change.
 
 ## Publishing to Dropbox — part of committing, not a later step
 **WHENEVER A COMMIT IS MADE, THE DROPBOX COPY IS UPDATED TOO (Glen, 2026-09-13: "the standing protocol
-is that whenever a commit is made, the dropbox version is also updated").** `AI Sandbox\Design through
+is that whenever a commit is made, the dropbox version is also updated").**
+**This is a family-wide rule and its authority is the GLOBAL guide** - `C:\Users\glenb\.claude\CLAUDE.md`, section "A push to GitHub is not a delivery. Dropbox is." - because a rule about all three filed under one of them is invisible in the other two. What follows here is the same rule with this application's own paths.
+ `AI Sandbox\Design through
 Making\Sangala Tools\Sangala Mosaic Files` is what Jo, Moses and the students install from, so a copy
 left behind there is the version they actually get. `Update SangalaMosaic.cmd` pulling from GitHub does
 NOT excuse it — that serves only a tester who runs the updater. Mosaic sat at `.93` in Dropbox while
